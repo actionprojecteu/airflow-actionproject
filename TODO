@@ -1,0 +1,34 @@
+Short-term
+==========
+* depurar Zendodo Hook y Operator
+  - depurar cada step, haciendo un operador de testeo en cada paso
+  - que pasa con el searchg que devuelve cuando no lo encuentra
+  - que pasa cuando se publica 'draft', que se devuelve en lugar de un doi
+
+* How to manage variables:
+  with "airflow variables set KEY VALUE" 
+  and via API
+     from airflow.models import Variable
+     Variable.set("column_number", int(column_number) + 1)
+     value = Variable.get("column number")
+
+Mid-term
+========
+* Upload subject sets de 500-1000. Limite de subject sets es 10000
+* transformacion y carga de clasificaciones
+
+Long-term
+==========
+* reduccion de clasificaciones
+* integrar con un GIS
+
+Otras ideas
+===========
+1) Street Spectra APP
+* generar un uuid por cada observacion
+* metadatos similares a epicollect 5
+* en el boton de "repetir"
+  - No subir imagen
+  - en su lugar, añadir "same_as" : uuid de la ultima observacion con imagen
+  - pero si añadir nueva marca de tiempo, coordenadas y nickname
+

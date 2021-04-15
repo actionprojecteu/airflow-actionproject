@@ -1,0 +1,3 @@
+include versioneer.py
+include src/airflow_actionproject/_version.py
+recursive-include files *
