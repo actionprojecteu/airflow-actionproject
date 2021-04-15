@@ -33,4 +33,4 @@ from pkg_resources import resource_filename
 # ----------------
 
 with open(resource_filename(__name__, os.path.join('data', 'streetspectra.sql'))) as fd:
-	SQL_STREETSPECTRA_SCHEMA = '\n'.join(fd.readlines())
+	SQL_STREETSPECTRA_SCHEMA = ''.join(fd.readlines())
