@@ -23,6 +23,8 @@ from airflow.operators.bash import BashOperator
 from airflow.operators.dummy import DummyOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.operators.email  import EmailOperator
+from airflow.providers.sqlite.operators.sqlite import SqliteOperator
+
 
 #-----------------------
 # custom Airflow imports
@@ -34,6 +36,8 @@ from airflow_actionproject.operators.zenodo        import ZenodoPublishDatasetOp
 from airflow_actionproject.operators.action        import ActionDownloadOperator, ActionUploadOperator
 from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator
 from airflow_actionproject.callables.zooniverse    import zooniverse_manage_subject_sets
+
+from airflow_actionproject.operators import SQL_STREETSPECTRA_SCHEMA
 
 # ---------------------
 # Default DAG arguments
@@ -240,4 +244,12 @@ publish_to_zenodo = ZenodoPublishDatasetOperator(
     creators    = [{'name': "Gonzalez, Rafael"}],
     communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project"}],
     dag         = dag_zen,
+)
+
+# Example of creating a task that calls an sql command from an external file.
+create_temp_database = SqliteOperator(
+    task_id='create_table_sqlite_external_file',
+    sqlite_conn_id='streetspectra-temp-db',
+    sql=SQL_STREETSPECTRA_SCHEMA,
+    dag=dag_zen,
 )
