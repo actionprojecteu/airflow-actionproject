@@ -117,6 +117,16 @@ zenodo
 * The `extra` field contains the HTTP page size and the transactions per second rate limit for search requests.
 
 
+### Temporary database to deduplicate Zooniverse exports and other things
+
+```bash
+airflow connections add \
+--conn-type sqlite \
+--conn-host  "~/airflow/extra_dbase/street_spectra.db" \
+--conn-description "Connection to Temporary SQLite Database for StreetSpectra" \
+streetspectra-temp-db
+```
+
 # Testing from the command line
 
 1. Activate the virtual environment

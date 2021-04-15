@@ -15,7 +15,6 @@ DESCRIPTION  = 'Airflow components for StreetSpectra',
 LICENSE      = 'MIT'
 KEYWORDS     = 'Astronomy Python CitizenScience LightPollution'
 URL          = 'https://github.com/actionprojecteu/airflow-actionproject/'
-#PACKAGES     = ["zoonispectra"]
 DEPENDENCIES = ["panoptes-client"]
 
 CLASSIFIERS  = [
@@ -30,31 +29,34 @@ CLASSIFIERS  = [
     'Development Status :: 4 - Beta',
 ]
 
+PACKAGE_DATA = {
+    'airflow_actionproject.operators': ['data/*.sql',],
+}
 
-SCRIPTS = [
-]
+SCRIPTS = []
+
 
 DATA_FILES  = [ 
 #  ('~/airflow/dags',    ['files/dags/streetspectra.py']),
 ]
 
-
-setup(name             = PKG_NAME,
-    version            = versioneer.get_version(),
-    cmdclass           = versioneer.get_cmdclass(),
-    author             = AUTHOR,
-    author_email       = AUTHOR_EMAIL,
-    description        = DESCRIPTION,
+setup(
+    name             = PKG_NAME,
+    version          = versioneer.get_version(),
+    cmdclass         = versioneer.get_cmdclass(),
+    author           = AUTHOR,
+    author_email     = AUTHOR_EMAIL,
+    description      = DESCRIPTION,
     long_description_content_type = "text/markdown",
-    long_description   = LONG_DESCRIPTION,
-    license            = LICENSE,
-    keywords           = KEYWORDS,
-    url                = URL,
-    classifiers        = CLASSIFIERS,
-    packages           = find_packages("src"),
-    package_dir        = {"": "src"},
-    install_requires   = DEPENDENCIES,
-    scripts            = SCRIPTS,
-    data_files         = DATA_FILES
-) 
- 
+    long_description = LONG_DESCRIPTION,
+    license          = LICENSE,
+    keywords         = KEYWORDS,
+    url              = URL,
+    classifiers      = CLASSIFIERS,
+    packages         = find_packages("src"),
+    package_dir      = {"": "src"},
+    install_requires = DEPENDENCIES,
+    scripts          = SCRIPTS,
+    package_data     = PACKAGE_DATA,
+    data_files       = DATA_FILES,
+)
