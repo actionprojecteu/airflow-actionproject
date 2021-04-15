@@ -4,7 +4,6 @@
 
 CREATE TABLE IF NOT EXISTS zooniverse_t
 (
-
 	classification_id	INTEGER,
 	workflow_id			INTEGER,	
 	workflow_name		TEXT,	
