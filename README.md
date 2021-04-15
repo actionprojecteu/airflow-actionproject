@@ -89,7 +89,7 @@ airflow connections add \
 --conn-host api.actionproject.eu \
 --conn-port 443 \
 --conn-password "<API key>" \
---conn-schema "observationss" \
+--conn-schema "observations" \
 --conn-extra '{"page_size": 100, "tps": 2}' \
 --conn-description "Connection to ACTION observations database" \
 action-database-<your project>
@@ -110,11 +110,11 @@ airflow connections add \
 --conn-password "<API key>" \
 --conn-extra '{"page_size": 100, "tps": 2}' \
 --conn-description "Connection to Zenodo" \
-zenodo-<your community>
+zenodo
 ```
 
 * The `password` field contains the Zenodo API Key.
-* The `extra` field contains the HTTP page size for search requests.
+* The `extra` field contains the HTTP page size and the transactions per second rate limit for search requests.
 
 
 # Testing from the command line
