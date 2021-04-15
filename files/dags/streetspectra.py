@@ -250,6 +250,6 @@ publish_to_zenodo = ZenodoPublishDatasetOperator(
 create_temp_database = SqliteOperator(
     task_id='create_table_sqlite_external_file',
     sqlite_conn_id='streetspectra-temp-db',
-    sql=SQL_STREETSPECTRA_SCHEMA,
+    sql=SQL_STREETSPECTRA_SCHEMA + ' ', # This is a hack for Jinja2 template not to raise error
     dag=dag_zen,
 )

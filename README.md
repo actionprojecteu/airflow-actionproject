@@ -122,7 +122,7 @@ zenodo
 ```bash
 airflow connections add \
 --conn-type sqlite \
---conn-host  "~/airflow/extra_dbase/street_spectra.db" \
+--conn-host  "/home/rafa/airflow/extra_dbase/street_spectra.db" \
 --conn-description "Connection to Temporary SQLite Database for StreetSpectra" \
 streetspectra-temp-db
 ```
@@ -184,6 +184,14 @@ airflow connections add \
 --conn-extra '{"page_size": 100, "tps": 2}' \
 --conn-description "Connection to Zenodo sandbox environment" \
 zenodo-sandbox
+```
+
+```bash
+airflow connections add \
+--conn-type sqlite \
+--conn-host  "/home/rafa/airflow/extra_dbase/street_spectra.db" \
+--conn-description "Connection to Temporary SQLite Database for StreetSpectra" \
+streetspectra-temp-db
 ```
 
 4. Test each task individually and sequentially
