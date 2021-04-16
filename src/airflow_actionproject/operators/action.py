@@ -49,7 +49,7 @@ class ActionUploadOperator(BaseOperator):
 
 	@apply_defaults
 	def __init__(self, conn_id, input_path, **kwargs):
-		super(ActionUploadOperator, self).__init__(**kwargs)
+		super().__init__(**kwargs)
 		self._conn_id = conn_id
 		self._input_path = input_path
 
@@ -83,7 +83,7 @@ class ActionDownloadOperator(BaseOperator):
 
 	@apply_defaults
 	def __init__(self, conn_id, output_path, start_datetime, end_datetime, project, obs_type='observation', **kwargs):
-		super(ActionDownloadOperator, self).__init__(**kwargs)
+		super().__init__(**kwargs)
 		self._conn_id = conn_id
 		self._output_path = output_path
 		self._start_datetime = start_datetime

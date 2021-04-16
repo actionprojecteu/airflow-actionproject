@@ -20,6 +20,7 @@ import datetime
 
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
+from airflow.providers.sqlite.hooks.sqlite import SqliteHook
 
 #--------------
 # local imports
@@ -75,7 +76,7 @@ class EC5TransformOperator(BaseOperator):
 
 	@apply_defaults
 	def __init__(self, input_path, output_path, **kwargs):
-		super(EC5TransformOperator, self).__init__(**kwargs)
+		super().__init__(**kwargs)
 		self._input_path  = input_path
 		self._output_path = output_path
 
@@ -136,7 +137,7 @@ class ZooniverseImportOperator(BaseOperator):
 
 	@apply_defaults
 	def __init__(self, input_path, display_name, **kwargs):
-		super(ZooniverseImportOperator, self).__init__(**kwargs)
+		super().__init__(**kwargs)
 		self._input_path   = input_path
 		self._display_name = display_name
 
@@ -148,3 +149,74 @@ class ZooniverseImportOperator(BaseOperator):
 		with ZooniverseHook(self._conn_id) as hook:
 			hook.add_subject_set(self._display_name, subjects_metadata)
 		
+
+class ZooniverseAccumulateOperator(BaseOperator):
+	"""
+	Operator that accumulate Zooniverse exports for a givem project. 
+	This necessary to load into the ACTIOndatabase only new classifications.
+
+	Parameters
+	—————
+	input_path : str
+	(Templated) Path to input Zooniverse export JSON file.
+	sqlite_conn_id : str
+	SQLite connection id for the Consolidation Database.
+	"""
+
+	template_fields = ("_input_path, _display_name")
+
+
+	@apply_defaults
+	def __init__(self, input_path, sqlite_conn_id, **kwargs):
+		super().__init__(**kwargs)
+		self._input_path = input_path
+		self._conn_id    = sqlite_conn_id
+
+	def execute(self, context):
+		self.log.info(f"Consolidating data from {self._input_path}")
+		with open(self._input_file) as fd:
+			raw_exported = json.load(fd)
+		hook = SqliteHook(sqlite_conn_id=self._conn_id)
+		for record in raw_exported:
+			record['gold_standard'] = json.dumps(record['gold_standard'])
+			record['expert']       = json.dumps(record['expert'])
+			record['annotations']  = json.dumps(record['annotations'])
+			record['subject_data'] = json.dumps(record['subject_data'])
+			record['subject_ids']  = json.dumps(record['subject_ids'])
+			try:
+	        	hook.run(
+	        		'''
+	        		INSERT OR REPLACE INTO zooniverse_export_t (
+	        			classification_id,
+						user_name,
+						user_id,
+						workflow_id,
+						workflow_name,	
+						workflow_version,
+						created_at,	
+						gold_standard,	
+						expert,	
+						metadata,	
+						annotations,	
+						subject_data,
+						subject_ids
+	        		) VALUES (
+	        			:classification_id,
+						:user_name,
+						:user_id,
+						:workflow_id,
+						:workflow_name,	
+						:workflow_version,
+						:created_at,	
+						:gold_standard,	
+						:expert,	
+						:metadata,	
+						:annotations,	
+						:subject_data,
+						:subject_ids
+	        		)
+	        		''', parameters=record)
+	        except:
+	        	pass
+	        finally:
+	        	hook.close()

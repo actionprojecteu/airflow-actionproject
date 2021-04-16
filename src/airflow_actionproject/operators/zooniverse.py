@@ -40,7 +40,7 @@ class ZooniverseExportOperator(BaseOperator):
 
 	@apply_defaults
 	def __init__(self, output_path, conn_id, generate=False, wait=True, timeout=120, **kwargs):
-		super(ZooniverseExportOperator, self).__init__(**kwargs)
+		super().__init__(**kwargs)
 		self._output_path = output_path
 		self._conn_id     = conn_id
 		self._generate    = generate

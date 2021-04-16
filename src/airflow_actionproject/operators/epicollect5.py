@@ -55,7 +55,7 @@ class EC5ExportEntriesOperator(BaseOperator):
 
 	@apply_defaults
 	def __init__(self, conn_id, output_path, start_date, end_date, **kwargs):
-		super(EC5ExportEntriesOperator, self).__init__(**kwargs)
+		super().__init__(**kwargs)
 		self._conn_id = conn_id
 		self._output_path = output_path
 		self._start_date = start_date

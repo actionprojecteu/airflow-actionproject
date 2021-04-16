@@ -87,7 +87,7 @@ class ZenodoPublishDatasetOperator(BaseOperator):
 
 	@apply_defaults
 	def __init__(self, conn_id, file_path, title, description, version, creators, communities=None, contributors=None, status='published', access_right='open', **kwargs):
-		super(ZenodoPublishDatasetOperator, self).__init__(**kwargs)
+		super().__init__(**kwargs)
 		self._conn_id      = conn_id
 		self._file_path    = file_path
 		self._status       = status
@@ -163,7 +163,7 @@ class ZenodoPublishDatasetOperator(BaseOperator):
 
 # 	@apply_defaults
 # 	def __init__(self, conn_id, title, status='published', **kwargs):
-# 		super(ZenodoTestDepositSearchOperator, self).__init__(**kwargs)
+# 		super().__init__(**kwargs)
 # 		self._conn_id      = conn_id
 # 		self._status       = status
 # 		self._title        = title
@@ -181,7 +181,7 @@ class ZenodoPublishDatasetOperator(BaseOperator):
 
 # 	@apply_defaults
 # 	def __init__(self, conn_id, title, **kwargs):
-# 		super(ZenodoTestDepositNewEntryOperator, self).__init__(**kwargs)
+# 		super().__init__(**kwargs)
 # 		self._conn_id      = conn_id
 # 		self._title        = title
 
@@ -196,7 +196,7 @@ class ZenodoPublishDatasetOperator(BaseOperator):
 
 # 	@apply_defaults
 # 	def __init__(self, conn_id, latest_id, **kwargs):
-# 		super(ZenodoTestDepositNewVersionOperator, self).__init__(**kwargs)
+# 		super().__init__(**kwargs)
 # 		self._conn_id      = conn_id
 # 		self._ident        = latest_id
 
@@ -213,7 +213,7 @@ class ZenodoPublishDatasetOperator(BaseOperator):
 
 # 	@apply_defaults
 # 	def __init__(self, conn_id, ident, title, description, version, creators, contributors=None, upload_type='dataset', access_right='open', **kwargs):
-# 		super(ZenodoTestDepositMetadataOperator, self).__init__(**kwargs)
+# 		super().__init__(**kwargs)
 # 		self._conn_id      = conn_id
 # 		self._identifier   = ident
 # 		self._title        = title
@@ -245,7 +245,7 @@ class ZenodoPublishDatasetOperator(BaseOperator):
 
 # 	@apply_defaults
 # 	def __init__(self, conn_id, file_path, bucket_url, **kwargs):
-# 		super(ZenodoTestDepositContentsOperator, self).__init__(**kwargs)
+# 		super().__init__(**kwargs)
 # 		self._conn_id      = conn_id
 # 		self._file_path    = file_path
 # 		self._bucket_url   = bucket_url
@@ -262,7 +262,7 @@ class ZenodoPublishDatasetOperator(BaseOperator):
 
 # 	@apply_defaults
 # 	def __init__(self, conn_id, ident, **kwargs):
-# 		super(ZenodoTestDepositPublishOperator, self).__init__(**kwargs)
+# 		super().__init__(**kwargs)
 # 		self._conn_id      = conn_id
 # 		self._ident        = ident
 	
