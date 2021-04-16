@@ -99,9 +99,9 @@ class EC5TransformOperator(BaseOperator):
 	def _remap(self, item):
 		# Fixes timestamps format
 		dt = datetime.datetime.strptime(item['created_at'],'%Y-%m-%dT%H:%M:%S.%fZ').replace(microsecond=0)
-		item['created_at'] = dt.strftime('%Y-%m-%dT%H:%M:%S UTC')
+		item['created_at'] = dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 		dt = datetime.datetime.strptime(item['uploaded_at'],'%Y-%m-%dT%H:%M:%S.%fZ').replace(microsecond=0)
-		item['uploaded_at'] = dt.strftime('%Y-%m-%dT%H:%M:%S UTC')
+		item['uploaded_at'] = dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 		
 		# Handle old Epicollect form entries not needed
 		if "time" in item:
@@ -183,40 +183,36 @@ class ZooniverseAccumulateOperator(BaseOperator):
 			record['annotations']  = json.dumps(record['annotations'])
 			record['subject_data'] = json.dumps(record['subject_data'])
 			record['subject_ids']  = json.dumps(record['subject_ids'])
-			try:
-	        	hook.run(
-	        		'''
-	        		INSERT OR REPLACE INTO zooniverse_export_t (
-	        			classification_id,
-						user_name,
-						user_id,
-						workflow_id,
-						workflow_name,	
-						workflow_version,
-						created_at,	
-						gold_standard,	
-						expert,	
-						metadata,	
-						annotations,	
-						subject_data,
-						subject_ids
-	        		) VALUES (
-	        			:classification_id,
-						:user_name,
-						:user_id,
-						:workflow_id,
-						:workflow_name,	
-						:workflow_version,
-						:created_at,	
-						:gold_standard,	
-						:expert,	
-						:metadata,	
-						:annotations,	
-						:subject_data,
-						:subject_ids
-	        		)
-	        		''', parameters=record)
-	        except:
-	        	pass
-	        finally:
-	        	hook.close()
+	     #    hook.run(
+	     #    	'''
+	     #    		INSERT OR REPLACE INTO zooniverse_export_t (
+	     #    			classification_id,
+						# user_name,
+						# user_id,
+						# workflow_id,
+						# workflow_name,	
+						# workflow_version,
+						# created_at,	
+						# gold_standard,	
+						# expert,	
+						# metadata,	
+						# annotations,	
+						# subject_data,
+						# subject_ids
+	     #    		) VALUES (
+	     #    			:classification_id,
+						# :user_name,
+						# :user_id,
+						# :workflow_id,
+						# :workflow_name,	
+						# :workflow_version,
+						# :created_at,	
+						# :gold_standard,	
+						# :expert,	
+						# :metadata,	
+						# :annotations,	
+						# :subject_data,
+						# :subject_ids
+	     #    		)
+	     #    	''', parameters=record)
+	      

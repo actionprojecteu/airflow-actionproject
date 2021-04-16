@@ -104,19 +104,12 @@ transform_ec5_observations = EC5TransformOperator(
     dag          = dag1,
 )
 
-# Esto hay que editarlo cuando el API de ACTION PROJECT esté listo
-if True:
-    load_ec5_observations = DummyOperator(
-        task_id = "load_ec5_observations",
-        dag     = dag1,
-    )
-else:
-    load_ec5_classfications = ActionUploadOperator(
-       task_id    = "load_ec5_observations",
-       conn_id    = "action-database",
-       input_path = "/tmp/ec5/street-spectra/transformed-{{ds}}.json",
-       dag        = dag1,
-    )
+load_ec5_observations = ActionUploadOperator(
+    task_id    = "load_ec5_observations",
+    conn_id    = "action-database",
+    input_path = "/tmp/ec5/street-spectra/transformed-{{ds}}.json",
+    dag        = dag1,
+)
 
 export_ec5_observations >> transform_ec5_observations >> load_ec5_observations
 
@@ -144,41 +137,31 @@ manage_subject_sets = ShortCircuitOperator(
     dag           = dag2
 )
 
-if True:
-    def _print_context(**context):
-        print(context)
+# AQUI HAY QUE VER LO DE LAS FECHAS, QUE HAY QUE COGERLAS DE VARIABLES, EN LUGAR DEL PERIODO DE EJECUCION
+download_from_action = ActionDownloadOperator(
+    task_id        = "download_from_action",
+    conn_id        = "action-database",
+    output_path    = "/tmp/zooniverse/streetspectra/action-{{ds}}.json",
+    start_date     = "{{ds}}",
+    end_date       = "{{next_ds}}",
+    project        = "street-spectra", 
+    obs_type       = "observation",
+    dag            = dag2,
+)
 
-    download_from_action = PythonOperator(
-        task_id         = "download_from_action",
-        python_callable =_print_context,
-        dag = dag2,
-    )
-
-    upload_new_subject_set = PythonOperator(
-        task_id         = "upload_new_subject_set",
-        python_callable =_print_context,
-        dag = dag2,
-    )
-
-else:
-    # AQUI HAY QUE VER LO DE LAS FECHAS, QUE HAY QUE COGERLAS DE VARIABLES, EN LUGAR DEL PERIODO DE EJECUCION
-    download_from_action = ActionDownloadOperator(
-       task_id        = "download_from_action",
-       conn_id        = "action-database",
-       output_path    = "/tmp/zooniverse/streetspectra/action-{{ds}}.json",
-       start_datetime = "{{ds}}",
-       end_datetime   = "{{next_ds}}",
-       project        = "street-spectra", 
-       obs_type       = "observation",
-       dag            = dag2,
-    )
-
+if False:
     upload_new_subject_set = ZooniverseImportOperator(
         task_id         = "upload_new_subject_set",
         input_path      = "/tmp/zooniverse/streetspectra/action-{{ds}}.json", 
         display_name    = "Subject Set {{ds}}",
         dag = dag2,
     )
+else:
+    upload_new_subject_set = DummyOperator(
+        task_id         = "upload_new_subject_set",
+        dag = dag2,
+    )
+
 
 email_team = EmailOperator(
     task_id      = "email_team",

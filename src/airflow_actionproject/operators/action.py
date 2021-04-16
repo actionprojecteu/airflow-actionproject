@@ -79,15 +79,15 @@ class ActionDownloadOperator(BaseOperator):
 	Expected format is YYYY-MM-DD (equal to Airflow"s ds formats).
 	"""
 	
-	template_fields = ("_start_datetime", "_end_datetime", "_output_path")
+	template_fields = ("_start_date", "_end_date", "_output_path")
 
 	@apply_defaults
-	def __init__(self, conn_id, output_path, start_datetime, end_datetime, project, obs_type='observation', **kwargs):
+	def __init__(self, conn_id, output_path, start_date, end_date, project, obs_type='observation', **kwargs):
 		super().__init__(**kwargs)
 		self._conn_id = conn_id
 		self._output_path = output_path
-		self._start_datetime = start_datetime
-		self._end_datetime = end_datetime
+		self._start_date = start_date
+		self._end_date = end_date
 		self._obs_type = obs_type
 		self._project = project
 
@@ -97,13 +97,13 @@ class ActionDownloadOperator(BaseOperator):
 			self.log.info(f"Fetching entries for {self._start_date} to {self._end_date}")
 			observations = list(
 				hook.download( 
-					start_datetime = self._start_datetime,
-					end_datetime = self._end_datetime,
+					start_date = self._start_date,
+					end_date = self._end_date,
 					project = self._project,
 					obs_type = self._obs_type,
 				)
 			)
-			self.log.info(f"Fetched {len(entries)} entries")
+			self.log.info(f"Fetched {len(observations)} entries")
 		# Make sure the output directory exists.
 		output_dir = os.path.dirname(self._output_path)
 		os.makedirs(output_dir, exist_ok=True)

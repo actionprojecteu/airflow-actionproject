@@ -75,23 +75,24 @@ class ActionDatabaseHook(BaseHook):
 		return self._session, self._base_url, self._page_size, self._delay
 
 
-	def _do_get_entries(self, session, url, params, page_size):
-		offset = 0
-		total = None
-		while total is None or offset < total:
+	def _paginated_get_entries(self, session, url, params, page_size):
+		page = 1
+		premature_exit = False
+		while not premature_exit:
 			self.log.debug(f"Requesting page {url}")
 			response = session.get(
-				url, params={**params, **{"page": offset, "limit": page_size}}
+				url, params={**params, **{"page": page, "limit": page_size}}
 			)
 			if not response.ok:
 				self.log.error(f"{response.text}")
 				response.raise_for_status()
 			response_json = response.json()
-			time.sleep(self._delay)	
-			self.log.debug(f"Page {page} received")
-			yield from response_json["result"]
-			offset += page_size
-			total = response_json["total"]
+			premature_exit = len(response_json) == 0
+			yield from response_json
+			page += 1
+			time.sleep(self._delay)
+
+
 
 	# ----------
 	# Public API
@@ -127,13 +128,13 @@ class ActionDatabaseHook(BaseHook):
 		session, url, page_size, delay = self.get_conn()
 		self.log.info(f"Uploading {len(observations)} observations to ACTION Database")
 		for observation in observations:
-			observation["written_at"] = datetime.datetime.utcnow().strftime("%Y-%m-%DT%H:%M:%S UTC")
+			observation["written_at"] = datetime.datetime.utcnow().strftime("%Y-%m-%DT%H:%M:%S.%fZ")
 			response = session.post(url, json=observation)
 			response.raise_for_status()
 			time.sleep(delay)
 
 
-	def download(self, start_datetime, end_datetime, project, obs_type):
+	def download(self, start_date, end_date, project, obs_type):
 		"""
 		Fetches entries from ACTION for a givven project between given start/end date.
 		Parameters
@@ -153,12 +154,12 @@ class ActionDatabaseHook(BaseHook):
 		session, url, page_size, delay = self.get_conn()
 		self.log.info(f"Getting Observations from ACTION Database {self._project_slug}")
 		params = {
-			"begin_date" : start_datetime,
-			"finish_date": end_datetime,
+			"begin_date" : start_date,
+			"finish_date": end_date,
 			"project"    : project,
 			"obs_type"   : obs_type,
 		}
-		yield from self._do_get_entries(session, url, params, page_size)
+		yield from self._paginated_get_entries(session, url, params, page_size)
 		
 	def close(self):
 		self.log.info(f"Closing ACTION database hook")
