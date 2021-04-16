@@ -66,7 +66,7 @@ class EpiCollect5Hook(BaseHook):
 			else:
 				self._page_size = extra.get("page_size", self.DEFAULT_PAGE_SIZE)
 			self._url = f"{ctyp}://{host}:{port}{self.API_SLUG}/{self._project_slug}"
-			self._sessions = requests.Session()
+			self._session = requests.Session()
 		return self._session, self._url, self._page_size
 
 
