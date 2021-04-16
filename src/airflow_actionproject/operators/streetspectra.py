@@ -125,7 +125,7 @@ class EC5TransformOperator(BaseOperator):
 		'''Map Epicollect V metadata to an internal, more convenient representation'''
 		# Use generators instead of lists
 		g1 = ({self.NAME_MAP[name]: val for name, val in entry.items()} for entry in entries)
-		g2 =  map(self._remap_, g1)
+		g2 =  map(self._remap, g1)
 		return g2
 
 
