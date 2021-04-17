@@ -33,9 +33,11 @@ from airflow.providers.sqlite.operators.sqlite import SqliteOperator
 from airflow_actionproject.operators.epicollect5   import EC5ExportEntriesOperator
 from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperator
 from airflow_actionproject.operators.zenodo        import ZenodoPublishDatasetOperator
-from airflow_actionproject.operators.action        import ActionDownloadOperator, ActionUploadOperator
+from airflow_actionproject.operators.action        import ActionDownloadFromStartDateOperator, ActionUploadOperator
 from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator
 from airflow_actionproject.callables.zooniverse    import zooniverse_manage_subject_sets
+from airflow_actionproject.callables.action        import check_number_of_entries
+
 
 from airflow_actionproject.operators import SQL_STREETSPECTRA_SCHEMA
 
@@ -137,13 +139,26 @@ manage_subject_sets = ShortCircuitOperator(
     dag           = dag2
 )
 
+check_enough_observations = ShortCircuitOperator(
+    task_id         = "check_enough_observations",
+    python_callable = check_number_of_entries,
+    op_kwargs = {
+        "conn_id"    : "zooniverse-streetspectra-test",
+        "start_date" : "2020-01-01",
+        "n_entries"  : 500,
+        "project"    : "street-spectra",
+        "obs_type"   : 'observation',
+    },
+    dag           = dag2
+)
+
 # AQUI HAY QUE VER LO DE LAS FECHAS, QUE HAY QUE COGERLAS DE VARIABLES, EN LUGAR DEL PERIODO DE EJECUCION
-download_from_action = ActionDownloadOperator(
+download_from_action = ActionDownloadFromStartDateOperator(
     task_id        = "download_from_action",
     conn_id        = "action-database",
     output_path    = "/tmp/zooniverse/streetspectra/action-{{ds}}.json",
     start_date     = "{{ds}}",
-    end_date       = "{{next_ds}}",
+    n_entries      = 3,
     project        = "street-spectra", 
     obs_type       = "observation",
     dag            = dag2,
@@ -169,7 +184,7 @@ email_team = EmailOperator(
     subject      = "New StreetSpectra Subject Set being uploaded to Zooniverse",
     html_content = "Subject Set {{ds}} being uploaded."
 )
-manage_subject_sets >> email_team >> download_from_action >> upload_new_subject_set
+manage_subject_sets >> email_team >> check_enough_observations >> download_from_action >> upload_new_subject_set
 
 
 # ============================
@@ -201,9 +216,9 @@ export_classifications = ZooniverseExportOperator(
     dag         = dag3,
 )
 
-transform_classfications = DummyOperator(task_id="transform_classfications")
+transform_classfications = DummyOperator(task_id="transform_classfications", dag=dag3)
 
-load_classfications = DummyOperator(task_id="load_classfications")
+load_classfications = DummyOperator(task_id="load_classfications", dag=dag3)
 
 export_classifications >> transform_classfications >> load_classfications
 

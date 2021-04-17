@@ -46,7 +46,6 @@ class ActionDatabaseHook(BaseHook):
 	def __init__(self, conn_id):
 		super().__init__()
 		self._conn_id = conn_id
-		self._project_slug = None
 		self._session = None
 
 
@@ -75,9 +74,12 @@ class ActionDatabaseHook(BaseHook):
 		return self._session, self._base_url, self._page_size, self._delay
 
 
-	def _paginated_get_entries(self, session, url, params, page_size):
-		page = 1
+	def _paginated_get_entries(self, session, url, params, page_size, n_entries):
+		page  = 1
+		total = 0
 		premature_exit = False
+		if page_size > n_entries:
+			page_size = n_entries
 		while not premature_exit:
 			self.log.debug(f"Requesting page {url}")
 			response = session.get(
@@ -87,9 +89,11 @@ class ActionDatabaseHook(BaseHook):
 				self.log.error(f"{response.text}")
 				response.raise_for_status()
 			response_json = response.json()
-			premature_exit = len(response_json) == 0
 			yield from response_json
-			page += 1
+			n = len(response_json)
+			page  += 1
+			total += n
+			premature_exit = (n == 0) or (total >= n_entries)
 			time.sleep(self._delay)
 
 
@@ -134,9 +138,10 @@ class ActionDatabaseHook(BaseHook):
 			time.sleep(delay)
 
 
-	def download(self, start_date, end_date, project, obs_type):
+	def download(self, start_date, end_date, project, obs_type, n_entries):
 		"""
-		Fetches entries from ACTION for a givven project between given start/end date.
+		Fetches entries from ACTION database for a given project between given start/end date 
+		or up to n_entries, whichever occurs sooner.
 		Parameters
 		—————
 		project_slug : str
@@ -152,14 +157,14 @@ class ActionDatabaseHook(BaseHook):
 		mean less requests, but more data transferred per request.
 		"""
 		session, url, page_size, delay = self.get_conn()
-		self.log.info(f"Getting Observations from ACTION Database {self._project_slug}")
+		self.log.info(f"Getting Observations for {project} from ACTION Database")
 		params = {
 			"begin_date" : start_date,
 			"finish_date": end_date,
 			"project"    : project,
 			"obs_type"   : obs_type,
 		}
-		yield from self._paginated_get_entries(session, url, params, page_size)
+		yield from self._paginated_get_entries(session, url, params, page_size, n_entries)
 		
 	def close(self):
 		self.log.info(f"Closing ACTION database hook")
