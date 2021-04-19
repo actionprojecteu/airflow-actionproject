@@ -38,11 +38,11 @@ def check_number_of_entries(conn_id, start_date, n_entries, project, obs_type='o
 			hook.download( 
 				start_date = start_date,
 				end_date   = "2999-12-31",
-				n_entries  = n_entries,
+				n_entries  = n_entries+1,
 				project    = project,
 				obs_type   = obs_type,
 			)
 		)
-	if len(observations) >= n_entries:
+	if len(observations) >= (n_entries+1):
 		available = True
 	return available

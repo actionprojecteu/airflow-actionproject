@@ -126,6 +126,13 @@ airflow connections add \
 --conn-description "Connection to Temporary SQLite Database for StreetSpectra" \
 streetspectra-temp-db
 ```
+## Airflow Variables
+
+This variable keeps track of the next observation of the database to be read
+
+```bash
+airflow variables set action_ss_read_tstamp "2000-01-01T00:00:00.000Z"
+```
 
 # Testing from the command line
 

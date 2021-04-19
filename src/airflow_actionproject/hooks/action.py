@@ -157,7 +157,7 @@ class ActionDatabaseHook(BaseHook):
 		mean less requests, but more data transferred per request.
 		"""
 		session, url, page_size, delay = self.get_conn()
-		self.log.info(f"Getting Observations for {project} from ACTION Database")
+		self.log.info(f"Getting from ACTION Database {n_entries} {obs_type}(s) for {project} from {start_date} to {end_date}")
 		params = {
 			"begin_date" : start_date,
 			"finish_date": end_date,
