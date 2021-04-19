@@ -208,7 +208,7 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
 	def execute(self, context):
 		start_date = Variable.get(self._key)
 		with ActionDatabaseHook(self._conn_id) as hook:
-			self.log.info(f"Fetching {self._n_entries} entries from date {self._start_date}")
+			self.log.info(f"Fetching {self._n_entries} entries from date {start_date}")
 			observations = list(
 				hook.download( 
 					start_date = start_date,
