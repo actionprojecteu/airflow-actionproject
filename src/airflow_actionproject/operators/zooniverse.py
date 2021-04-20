@@ -95,11 +95,32 @@ class ZooniverseDeltaOperator(BaseOperator):
 		self._input_path  = input_path
 		self._conn_id     = conn_id
 
+
+	def _reencode(self, classification):
+		classification_id, user_name, user_id, user_ip, workflow_id, workflow_name, workflow_version,  \
+		created_at, gold_standard, expert, metadata, annotations, subject_data, subject_ids = classification
+		return {
+			'classification_id': classification_id,
+			'user_name'        : user_name,
+			'user_id'          : user_id,
+			'user_ip'          : user_ip,
+			'workflow_id'      : workflow_id,
+			'workflow_name'    : workflow_name,
+			'workflow_version' : workflow_version,
+			'created_at'       : created_at,
+			'gold_standard'    : json.loads(gold_standard),
+			'expert'           : json.loads(expert),
+			'metadata'         : json.loads(metadata),
+			'annotations'      : json.loads(annotations),
+			'subject_data'     : json.loads(subject_data),
+			'subject_ids'      : json.loads(subject_ids)
+		}
+
+
 	def _extract(self, hook, context):
 		self.log.info(f"Consolidating data from {self._input_path}")
 		with open(self._input_path) as fd:
 			raw_exported = json.load(fd)
-		
 		(before,) = hook.get_first('''SELECT MAX(created_at) FROM zooniverse_export_t''')
 		for record in raw_exported:
 			record['gold_standard'] = json.dumps(record['gold_standard'])
@@ -151,6 +172,7 @@ class ZooniverseDeltaOperator(BaseOperator):
 			INSERT INTO zooniverse_window_t (executed_at, before, after) VALUES (:executed_at, :before, :after)
 			''', parameters=differences)
 
+
 	def _generate(self, hook, context):
 		self.log.info(f"Exporting new classifications to {self._output_path}")
 		before, after = hook.get_first(
@@ -163,20 +185,20 @@ class ZooniverseDeltaOperator(BaseOperator):
 		)
 		if before == after:
 			self.log.info("No new classifications to generate")
-			return
+			new_classifications = list()
+		else:
 
-		threshold = '2000-02-01T:00:00:00.00000Z' if before is None else before
-		new_classifications = hook.get_records(
-			'''
-			SELECT * 
-			FROM zooniverse_export_t
-			WHERE created_at > :threshold
-			ORDER BY created_at ASC
-			''',
-			parameters={'threshold': threshold}
-		)
-
-		new_classifications = list(map(self._reencode, new_classifications))
+			threshold = '2000-02-01T:00:00:00.00000Z' if before is None else before
+			new_classifications = hook.get_records(
+				'''
+				SELECT * 
+				FROM zooniverse_export_t
+				WHERE created_at > :threshold
+				ORDER BY created_at ASC
+				''',
+				parameters={'threshold': threshold}
+			)
+			new_classifications = list(map(self._reencode, new_classifications))
 		# Make sure the output directory exists.
 		output_dir = os.path.dirname(self._output_path)
 		os.makedirs(output_dir, exist_ok=True)
@@ -190,24 +212,4 @@ class ZooniverseDeltaOperator(BaseOperator):
 		self._extract(hook, context)
 		self._generate(hook, context)
 
-	def _reencode(self, classification):
-		self.log.info(f" ====> {classification} <=== ")
-		classification_id, user_name, user_id, user_ip, workflow_id, workflow_name, workflow_version,  \
-		created_at, gold_standard, expert, metadata, annotations, subject_data, subject_ids = classification
-		return {
-			'classification_id': classification_id,
-			'user_name'        : user_name,
-			'user_id'          : user_id,
-			'user_ip'          : user_ip,
-			'workflow_id'      : workflow_id,
-			'workflow_name'    : workflow_name,
-			'workflow_version' : workflow_version,
-			'created_at'       : created_at,
-			'gold_standard'    : json.loads(gold_standard),
-			'expert'           : json.loads(expert),
-			'metadata'         : json.loads(metadata),
-			'annotations'      : json.loads(annotations),
-			'subject_data'     : json.loads(subject_data),
-			'subject_ids'      : json.loads(subject_ids)
-		}
-
+	
