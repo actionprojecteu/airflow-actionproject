@@ -20,3 +20,11 @@ CREATE TABLE IF NOT EXISTS zooniverse_export_t
 
     PRIMARY KEY(classification_id)
 );
+
+CREATE TABLE IF NOT EXISTS zooniverse_window_t
+(
+    executed_at         TEXT,   -- execution timestamp
+    before              TEXT,   -- lastest classification timestamp before insertion
+    after               TEXT,   -- lastest classification timestamp after insertion
+    PRIMARY KEY(executed_at)
+);

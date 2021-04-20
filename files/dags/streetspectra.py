@@ -241,7 +241,6 @@ accumulate_classifications = ZooniverseAccumulateOperator(
     task_id       = "accumulate_classifications",
     conn_id       = "streetspectra-temp-db",
     input_path    = "/tmp/zooniverse/{{ds}}.json",
-    variable_name = "action_ss_classifications_window",
     dag           = classifications_dag,
 )
 

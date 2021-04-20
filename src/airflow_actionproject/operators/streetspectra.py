@@ -18,7 +18,7 @@ import datetime
 # Airflow imports
 # ---------------
 
-from airflow.models import BaseOperator, Variable
+from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 from airflow.providers.sqlite.hooks.sqlite import SqliteHook
 
@@ -167,11 +167,10 @@ class ZooniverseAccumulateOperator(BaseOperator):
 
 
 	@apply_defaults
-	def __init__(self, input_path, conn_id, variable_name, **kwargs):
+	def __init__(self, input_path, conn_id, **kwargs):
 		super().__init__(**kwargs)
 		self._input_path = input_path
 		self._conn_id    = conn_id
-		self._var_name   = variable_name
 
 	def execute(self, context):
 		self.log.info(f"Consolidating data from {self._input_path}")
@@ -219,8 +218,11 @@ class ZooniverseAccumulateOperator(BaseOperator):
 				)
 				''', parameters=record)
 		(after,) = hook.get_first('''SELECT MAX(created_at) FROM zooniverse_export_t''')
-		differences = {'before': before, 'after': after}
-		self.log.info(f"Classifications differences {differences}")
-		# To be used with Variable.get(<var name>, deserialize_json=True)
-		Variable.set(self._var_name, json.dumps(differences))
+		timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+		differences = {'executed_at': timestamp, 'before': before, 'after': after}
+		self.log.info(f"Logging classifications differences {differences}")
+		hook.run(
+			'''
+			INSERT INTO zooniverse_window_t (executed_at, before, after) VALUES (:executed_at, :before, :after)
+			''', parameters=differences)
 		

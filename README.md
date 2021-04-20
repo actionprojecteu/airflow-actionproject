@@ -134,14 +134,6 @@ This variable keeps track of the next observation of the database to be read
 airflow variables set action_ss_read_tstamp "2000-01-01T00:00:00.000Z"
 ```
 
-This variable keeps track of the new classifications window.
-The 'before' timestamp should be excluded, the 'after' timestamp should be included in this window
-
-
-```bash
-airflow variables set action_ss_classifications_window "{'before': null, 'after': null}"
-```
-
 # Testing from the command line
 
 1. Activate the virtual environment
