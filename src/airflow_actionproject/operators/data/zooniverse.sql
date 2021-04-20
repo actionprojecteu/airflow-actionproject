@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS zooniverse_export_t
     classification_id   INTEGER,
     user_name           TEXT,   -- only for registered users
     user_id             TEXT,   -- only for registered users
+    user_ip             TEXT,
     workflow_id         INTEGER,    
     workflow_name       TEXT,   
     workflow_version    TEXT,

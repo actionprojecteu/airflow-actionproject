@@ -114,6 +114,7 @@ class ZooniverseDeltaOperator(BaseOperator):
 					classification_id,
 					user_name,
 					user_id,
+					user_ip,
 					workflow_id,
 					workflow_name,  
 					workflow_version,
@@ -128,6 +129,7 @@ class ZooniverseDeltaOperator(BaseOperator):
 					:classification_id,
 					:user_name,
 					:user_id,
+					:user_ip,
 					:workflow_id,
 					:workflow_name, 
 					:workflow_version,
@@ -159,10 +161,53 @@ class ZooniverseDeltaOperator(BaseOperator):
 			LIMIT 1
 			'''
 		)
+		if before == after:
+			self.log.info("No new classifications to generate")
+			return
+
+		threshold = '2000-02-01T:00:00:00.00000Z' if before is None else before
+		new_classifications = hook.get_records(
+			'''
+			SELECT * 
+			FROM zooniverse_export_t
+			WHERE created_at > :threshold
+			ORDER BY created_at ASC
+			''',
+			parameters={'threshold': threshold}
+		)
+
+		new_classifications = list(map(self._reencode, new_classifications))
+		# Make sure the output directory exists.
+		output_dir = os.path.dirname(self._output_path)
+		os.makedirs(output_dir, exist_ok=True)
+		with open(self._output_path, "w") as fd:
+			json.dump(new_classifications, indent=2,fp=fd)
+		self.log.info(f"Written {len(new_classifications)} entries to {self._output_path}")
 
 
 	def execute(self, context):
 		hook = SqliteHook(sqlite_conn_id=self._conn_id)
 		self._extract(hook, context)
 		self._generate(hook, context)
-		
+
+	def _reencode(self, classification):
+		self.log.info(f" ====> {classification} <=== ")
+		classification_id, user_name, user_id, user_ip, workflow_id, workflow_name, workflow_version,  \
+		created_at, gold_standard, expert, metadata, annotations, subject_data, subject_ids = classification
+		return {
+			'classification_id': classification_id,
+			'user_name'        : user_name,
+			'user_id'          : user_id,
+			'user_ip'          : user_ip,
+			'workflow_id'      : workflow_id,
+			'workflow_name'    : workflow_name,
+			'workflow_version' : workflow_version,
+			'created_at'       : created_at,
+			'gold_standard'    : json.loads(gold_standard),
+			'expert'           : json.loads(expert),
+			'metadata'         : json.loads(metadata),
+			'annotations'      : json.loads(annotations),
+			'subject_data'     : json.loads(subject_data),
+			'subject_ids'      : json.loads(subject_ids)
+		}
+
