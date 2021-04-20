@@ -221,5 +221,6 @@ class ZooniverseAccumulateOperator(BaseOperator):
 		(after,) = hook.get_first('''SELECT MAX(created_at) FROM zooniverse_export_t''')
 		differences = {'before': before, 'after': after}
 		self.log.info(f"Classifications differences {differences}")
+		# To be used with Variable.get(<var name>, deserialize_json=True)
 		Variable.set(self._var_name, json.dumps(differences))
-
+		
