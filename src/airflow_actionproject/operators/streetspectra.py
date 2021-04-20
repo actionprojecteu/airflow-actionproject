@@ -82,10 +82,10 @@ class EC5TransformOperator(BaseOperator):
 
 	def execute(self, context):
 		self.log.info(f"Transforming EC5 observations from JSON file {self._input_path}")
-		# Make sure the output directory exists.
 		with open(self._input_path) as fd:
 			entries = json.load(fd)
 		result = list(self._ec5_remapper(entries))
+		# Make sure the output directory exists.
 		output_dir = os.path.dirname(self._output_path)
 		os.makedirs(output_dir, exist_ok=True)
 		with open(self._output_path,'w') as fd:
