@@ -36,7 +36,7 @@ from airflow_actionproject.operators.epicollect5   import EC5ExportEntriesOperat
 from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperator, ZooniverseDeltaOperator
 from airflow_actionproject.operators.zenodo        import ZenodoPublishDatasetOperator
 from airflow_actionproject.operators.action        import ActionDownloadFromVariableDateOperator, ActionUploadOperator
-from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator
+from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator, ZooniverseTransformOperator
 from airflow_actionproject.callables.zooniverse    import zooniverse_manage_subject_sets
 from airflow_actionproject.callables.action        import check_number_of_entries
 
@@ -244,10 +244,15 @@ only_new_classifications = ZooniverseDeltaOperator(
     dag           = classifications_dag,
 )
 
-transform_classfications = DummyOperator(task_id="transform_classfications", dag=classifications_dag)
+transform_classfications = ZooniverseTransformOperator(
+    task_id      = "transform_classfications",
+    input_path   = "/tmp/zooniverse/subset-{{ds}}.json",
+    output_path  = "/tmp/ec5/street-spectra/transformed-subset-{{ds}}.json",
+    dag          = classifications_dag,
+)
+
 
 load_classfications = DummyOperator(task_id="load_classfications", dag=classifications_dag)
-
 
 create_temp_database >> export_classifications >> only_new_classifications >> transform_classfications >> load_classfications
 
