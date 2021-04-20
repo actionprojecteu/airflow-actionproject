@@ -21,6 +21,14 @@ CREATE TABLE IF NOT EXISTS zooniverse_export_t
     PRIMARY KEY(classification_id)
 );
 
+----------------------------------------------------------------------
+-- This table keeps track of classification runs
+-- If we run a classification by Airflow backfilling
+-- we may loose track of a window of classifications not dumped to the
+-- ACTION database.
+-- This history log helps identify when and provides info to fix it.
+---------------------------------------------------------------------- 
+
 CREATE TABLE IF NOT EXISTS zooniverse_window_t
 (
     executed_at         TEXT,   -- execution timestamp
