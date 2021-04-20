@@ -30,16 +30,15 @@ from airflow.providers.sqlite.operators.sqlite import SqliteOperator
 # custom Airflow imports
 # ----------------------
 
+from airflow_actionproject.operators import SQL_ZOONIVERSE_SCHEMA
+
 from airflow_actionproject.operators.epicollect5   import EC5ExportEntriesOperator
-from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperator
+from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperator, ZooniverseDeltaOperator
 from airflow_actionproject.operators.zenodo        import ZenodoPublishDatasetOperator
 from airflow_actionproject.operators.action        import ActionDownloadFromVariableDateOperator, ActionUploadOperator
-from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator, ZooniverseAccumulateOperator
+from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator
 from airflow_actionproject.callables.zooniverse    import zooniverse_manage_subject_sets
 from airflow_actionproject.callables.action        import check_number_of_entries
-
-
-from airflow_actionproject.operators import SQL_STREETSPECTRA_SCHEMA
 
 # ---------------------
 # Default DAG arguments
@@ -223,24 +222,25 @@ classifications_dag = DAG(
 create_temp_database = SqliteOperator(
     task_id='create_table_sqlite_external_file',
     sqlite_conn_id='streetspectra-temp-db',
-    sql=SQL_STREETSPECTRA_SCHEMA + ' ', # This is a hack for Jinja2 template not to raise error
+    sql=SQL_ZOONIVERSE_SCHEMA + ' ', # This is a hack for Jinja2 template not to raise error
     dag=classifications_dag,
 )
 
 export_classifications = ZooniverseExportOperator(
     task_id     = "export_classifications",
     conn_id     = "zooniverse-streetspectra-test",
-    output_path = "/tmp/zooniverse/{{ds}}.json",
+    output_path = "/tmp/zooniverse/whole-{{ds}}.json",
     generate    = False, 
     wait        = True, 
     timeout     = 600,
     dag         = classifications_dag,
 )
 
-accumulate_classifications = ZooniverseAccumulateOperator(
-    task_id       = "accumulate_classifications",
+only_new_classifications = ZooniverseDeltaOperator(
+    task_id       = "only_new_classifications",
     conn_id       = "streetspectra-temp-db",
-    input_path    = "/tmp/zooniverse/{{ds}}.json",
+    input_path    = "/tmp/zooniverse/whole-{{ds}}.json",
+    output_path   = "/tmp/zooniverse/subset-{{ds}}.json",
     dag           = classifications_dag,
 )
 
@@ -249,7 +249,7 @@ transform_classfications = DummyOperator(task_id="transform_classfications", dag
 load_classfications = DummyOperator(task_id="load_classfications", dag=classifications_dag)
 
 
-create_temp_database >> export_classifications >> accumulate_classifications >> transform_classfications >> load_classfications
+create_temp_database >> export_classifications >> only_new_classifications >> transform_classfications >> load_classfications
 
 ################### TESTING ZENODO
 publishing_dag = DAG(

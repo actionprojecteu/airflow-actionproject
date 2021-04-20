@@ -12,7 +12,6 @@
 
 import os
 import json
-import datetime
 
 # ---------------
 # Airflow imports
@@ -20,13 +19,13 @@ import datetime
 
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
-from airflow.providers.sqlite.hooks.sqlite import SqliteHook
+
 
 #--------------
 # local imports
 # -------------
 
-# This hook lnows how to insert StreetSpectra metadata into subjects
+# This hook knows how to insert StreetSpectra metadata into subjects
 from airflow_actionproject.hooks.streetspectra import ZooniverseHook
 
 
@@ -130,10 +129,14 @@ class EC5TransformOperator(BaseOperator):
 		return g2
 
 
+# --------------------------------------------------------------
+# This class is sepcifict to StreetSpectra because 
+# this particular ZooniverseHook is specific to StreetSpectra
+# --------------------------------------------------------------
+
 class ZooniverseImportOperator(BaseOperator):
 
 	template_fields = ("_input_path", "_display_name")
-
 
 	@apply_defaults
 	def __init__(self, input_path, display_name, **kwargs):
@@ -148,81 +151,4 @@ class ZooniverseImportOperator(BaseOperator):
 			subjects_metadata = json.load(fd)
 		with ZooniverseHook(self._conn_id) as hook:
 			hook.add_subject_set(self._display_name, subjects_metadata)
-		
 
-class ZooniverseAccumulateOperator(BaseOperator):
-	"""
-	Operator that accumulate Zooniverse exports for a givem project. 
-	This necessary to load into the ACTIOndatabase only new classifications.
-
-	Parameters
-	—————
-	input_path : str
-	(Templated) Path to input Zooniverse export JSON file.
-	sqlite_conn_id : str
-	SQLite connection id for the Consolidation Database.
-	"""
-
-	template_fields = ("_input_path",)
-
-
-	@apply_defaults
-	def __init__(self, input_path, conn_id, **kwargs):
-		super().__init__(**kwargs)
-		self._input_path = input_path
-		self._conn_id    = conn_id
-
-	def execute(self, context):
-		self.log.info(f"Consolidating data from {self._input_path}")
-		with open(self._input_path) as fd:
-			raw_exported = json.load(fd)
-		hook = SqliteHook(sqlite_conn_id=self._conn_id)
-		(before,) = hook.get_first('''SELECT MAX(created_at) FROM zooniverse_export_t''')
-		for record in raw_exported:
-			record['gold_standard'] = json.dumps(record['gold_standard'])
-			record['expert']        = json.dumps(record['expert'])
-			record['annotations']   = json.dumps(record['annotations'])
-			record['metadata']      = json.dumps(record['metadata'])
-			record['subject_data']  = json.dumps(record['subject_data'])
-			record['subject_ids']   = json.dumps(record['subject_ids'])
-			hook.run(
-				'''
-				INSERT OR REPLACE INTO zooniverse_export_t (
-					classification_id,
-					user_name,
-					user_id,
-					workflow_id,
-					workflow_name,  
-					workflow_version,
-					created_at, 
-					gold_standard,  
-					expert, 
-					metadata,   
-					annotations,    
-					subject_data,
-					subject_ids
-				) VALUES (
-					:classification_id,
-					:user_name,
-					:user_id,
-					:workflow_id,
-					:workflow_name, 
-					:workflow_version,
-					:created_at,    
-					:gold_standard, 
-					:expert,    
-					:metadata,  
-					:annotations,   
-					:subject_data,
-					:subject_ids
-				)
-				''', parameters=record)
-		(after,) = hook.get_first('''SELECT MAX(created_at) FROM zooniverse_export_t''')
-		timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-		differences = {'executed_at': timestamp, 'before': before, 'after': after}
-		self.log.info(f"Logging classifications differences {differences}")
-		hook.run(
-			'''
-			INSERT INTO zooniverse_window_t (executed_at, before, after) VALUES (:executed_at, :before, :after)
-			''', parameters=differences)
-		

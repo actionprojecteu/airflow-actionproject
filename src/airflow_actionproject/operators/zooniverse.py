@@ -12,6 +12,7 @@
 
 import os
 import json
+import datetime
 
 # ---------------
 # Airflow imports
@@ -19,6 +20,7 @@ import json
 
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
+from airflow.providers.sqlite.hooks.sqlite import SqliteHook
 
 #--------------
 # local imports
@@ -33,6 +35,8 @@ from airflow_actionproject.hooks.zooniverse import ZooniverseHook
 # ----------------
 # Module constants
 # ----------------
+
+
 
 class ZooniverseExportOperator(BaseOperator):
 
@@ -62,3 +66,103 @@ class ZooniverseExportOperator(BaseOperator):
 		with open(self._output_path, 'w') as fd:
 			json.dump(exported, fp=fd, indent=2)
 			self.log.info(f"Written Project Classification export to {self._output_path}")
+
+
+
+class ZooniverseDeltaOperator(BaseOperator):
+	"""
+	Operator that extract ONLY new classifications from a
+	whole Zooniverse export file since the last run. 
+	This necessary to load into the ACTION database only new classifications.
+
+	Parameters
+	—————
+	input_path : str
+	(Templated) Path to input Zooniverse export JSON file.
+	output_path : str
+	(Templated) Path to ouput Zooniverse subset export JSON file.
+	conn_id : str
+	SQLite connection id for the internal Consolidation Database.
+	"""
+
+	template_fields = ("_input_path", "_output_path")
+
+
+	@apply_defaults
+	def __init__(self, input_path, output_path, conn_id, **kwargs):
+		super().__init__(**kwargs)
+		self._output_path = output_path
+		self._input_path  = input_path
+		self._conn_id     = conn_id
+
+	def _extract(self, hook, context):
+		self.log.info(f"Consolidating data from {self._input_path}")
+		with open(self._input_path) as fd:
+			raw_exported = json.load(fd)
+		
+		(before,) = hook.get_first('''SELECT MAX(created_at) FROM zooniverse_export_t''')
+		for record in raw_exported:
+			record['gold_standard'] = json.dumps(record['gold_standard'])
+			record['expert']        = json.dumps(record['expert'])
+			record['annotations']   = json.dumps(record['annotations'])
+			record['metadata']      = json.dumps(record['metadata'])
+			record['subject_data']  = json.dumps(record['subject_data'])
+			record['subject_ids']   = json.dumps(record['subject_ids'])
+			hook.run(
+				'''
+				INSERT OR REPLACE INTO zooniverse_export_t (
+					classification_id,
+					user_name,
+					user_id,
+					workflow_id,
+					workflow_name,  
+					workflow_version,
+					created_at, 
+					gold_standard,  
+					expert, 
+					metadata,   
+					annotations,    
+					subject_data,
+					subject_ids
+				) VALUES (
+					:classification_id,
+					:user_name,
+					:user_id,
+					:workflow_id,
+					:workflow_name, 
+					:workflow_version,
+					:created_at,    
+					:gold_standard, 
+					:expert,    
+					:metadata,  
+					:annotations,   
+					:subject_data,
+					:subject_ids
+				)
+				''', parameters=record)
+		(after,) = hook.get_first('''SELECT MAX(created_at) FROM zooniverse_export_t''')
+		timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+		differences = {'executed_at': timestamp, 'before': before, 'after': after}
+		self.log.info(f"Logging classifications differences {differences}")
+		hook.run(
+			'''
+			INSERT INTO zooniverse_window_t (executed_at, before, after) VALUES (:executed_at, :before, :after)
+			''', parameters=differences)
+
+	def _generate(self, hook, context):
+		self.log.info(f"Exporting new classifications to {self._output_path}")
+		before, after = hook.get_first(
+			'''
+			SELECT before, after 
+			FROM zooniverse_window_t
+			ORDER BY executed_at DESC
+			LIMIT 1
+			'''
+		)
+
+
+	def execute(self, context):
+		hook = SqliteHook(sqlite_conn_id=self._conn_id)
+		self._extract(hook, context)
+		self._generate(hook, context)
+		
