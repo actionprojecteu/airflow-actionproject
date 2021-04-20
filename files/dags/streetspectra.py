@@ -238,10 +238,11 @@ export_classifications = ZooniverseExportOperator(
 )
 
 accumulate_classifications = ZooniverseAccumulateOperator(
-    task_id     = "accumulate_classifications",
-    conn_id     = "streetspectra-temp-db",
-    input_path  = "/tmp/zooniverse/{{ds}}.json",
-    dag         = classifications_dag,
+    task_id       = "accumulate_classifications",
+    conn_id       = "streetspectra-temp-db",
+    input_path    = "/tmp/zooniverse/{{ds}}.json",
+    variable_name = "action_ss_classifications_window",
+    dag           = classifications_dag,
 )
 
 transform_classfications = DummyOperator(task_id="transform_classfications", dag=classifications_dag)
