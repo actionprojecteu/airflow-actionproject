@@ -34,7 +34,7 @@ from airflow_actionproject.operators.epicollect5   import EC5ExportEntriesOperat
 from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperator
 from airflow_actionproject.operators.zenodo        import ZenodoPublishDatasetOperator
 from airflow_actionproject.operators.action        import ActionDownloadFromVariableDateOperator, ActionUploadOperator
-from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator
+from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator, ZooniverseAccumulateOperator
 from airflow_actionproject.callables.zooniverse    import zooniverse_manage_subject_sets
 from airflow_actionproject.callables.action        import check_number_of_entries
 
@@ -77,7 +77,7 @@ default_args = {
 # 2. Transform into internal format for ACTION PROJECT Database
 # 3. Load into ACTION PROJECT Observations Database
 
-dag1 = DAG(
+street_spectra_dag = DAG(
     'street_spectra',
     default_args      = default_args,
     description       = 'StreetSpectra Observations ETL',
@@ -96,21 +96,21 @@ export_ec5_observations = EC5ExportEntriesOperator(
     start_date   = "{{ds}}",
     end_date     = "{{next_ds}}",
     output_path  = "/tmp/ec5/street-spectra/{{ds}}.json",
-    dag          = dag1,
+    dag          = street_spectra_dag,
 )
 
 transform_ec5_observations = EC5TransformOperator(
     task_id      = "transform_ec5_observations",
     input_path   = "/tmp/ec5/street-spectra/{{ds}}.json",
     output_path  = "/tmp/ec5/street-spectra/transformed-{{ds}}.json",
-    dag          = dag1,
+    dag          = street_spectra_dag,
 )
 
 load_ec5_observations = ActionUploadOperator(
     task_id    = "load_ec5_observations",
     conn_id    = "action-database",
     input_path = "/tmp/ec5/street-spectra/transformed-{{ds}}.json",
-    dag        = dag1,
+    dag        = street_spectra_dag,
 )
 
 export_ec5_observations >> transform_ec5_observations >> load_ec5_observations
@@ -119,10 +119,10 @@ export_ec5_observations >> transform_ec5_observations >> load_ec5_observations
 # Zooniverse Feeding Workflow
 # ===========================
 
-dag2 = DAG(
+zooniverse_dag = DAG(
     'zooniverse',
     default_args      = default_args,
-    description       = 'Zooniverse feeding workflow',
+    description       = 'Zooniverse image feeding workflow',
     schedule_interval = '@daily',
     start_date        = days_ago(2),
     tags              = ['ACTION PROJECT'],
@@ -136,7 +136,7 @@ manage_subject_sets = ShortCircuitOperator(
         "conn_id"  : "zooniverse-streetspectra-test",
         "threshold": 75,
     },
-    dag           = dag2
+    dag           = zooniverse_dag
 )
 
 check_enough_observations = ShortCircuitOperator(
@@ -149,7 +149,7 @@ check_enough_observations = ShortCircuitOperator(
         "project"    : "street-spectra",
         "obs_type"   : 'observation',
     },
-    dag           = dag2
+    dag           = zooniverse_dag
 )
 
 # AQUI HAY QUE VER LO DE LAS FECHAS, QUE HAY QUE COGERLAS DE VARIABLES, EN LUGAR DEL PERIODO DE EJECUCION
@@ -161,7 +161,7 @@ check_enough_observations = ShortCircuitOperator(
 #     n_entries      = 3,
 #     project        = "street-spectra", 
 #     obs_type       = "observation",
-#     dag            = dag2,
+#     dag            = zooniverse_dag,
 # )
 
 download_from_action = ActionDownloadFromVariableDateOperator(
@@ -172,7 +172,7 @@ download_from_action = ActionDownloadFromVariableDateOperator(
     n_entries      = 20,
     project        = "street-spectra", 
     obs_type       = "observation",
-    dag            = dag2,
+    dag            = zooniverse_dag,
 )
 
 if False:
@@ -180,12 +180,12 @@ if False:
         task_id         = "upload_new_subject_set",
         input_path      = "/tmp/zooniverse/streetspectra/action-{{ds}}.json", 
         display_name    = "Subject Set {{ds}}",
-        dag = dag2,
+        dag = zooniverse_dag,
     )
 else:
     upload_new_subject_set = DummyOperator(
         task_id         = "upload_new_subject_set",
-        dag = dag2,
+        dag = zooniverse_dag,
     )
 
 
@@ -208,7 +208,8 @@ manage_subject_sets >> email_team >> check_enough_observations >> download_from_
 # Este "enventanado" debe ser lo primero que se haga tras la exportacion para evitar
 # que los procesados posteriores sean largos
 
-dag3 = DAG(
+
+classifications_dag = DAG(
     'classifications',
     default_args      = default_args,
     description       = 'Testing Zooniverse classification workflows',
@@ -217,27 +218,44 @@ dag3 = DAG(
     tags              = ['ACTION PROJECT'],
 )
 
+# Example of creating a task that calls an sql command from an external file.
+# This should not probably be a task but a provisioning proecedure beforehand
+create_temp_database = SqliteOperator(
+    task_id='create_table_sqlite_external_file',
+    sqlite_conn_id='streetspectra-temp-db',
+    sql=SQL_STREETSPECTRA_SCHEMA + ' ', # This is a hack for Jinja2 template not to raise error
+    dag=classifications_dag,
+)
+
 export_classifications = ZooniverseExportOperator(
     task_id     = "export_classifications",
     conn_id     = "zooniverse-streetspectra-test",
     output_path = "/tmp/zooniverse/{{ds}}.json",
     generate    = False, 
     wait        = True, 
-    timeout     = 120,
-    dag         = dag3,
+    timeout     = 600,
+    dag         = classifications_dag,
 )
 
-transform_classfications = DummyOperator(task_id="transform_classfications", dag=dag3)
+accumulate_classifications = ZooniverseAccumulateOperator(
+    task_id     = "accumulate_classifications",
+    conn_id     = "streetspectra-temp-db",
+    input_path  = "/tmp/zooniverse/{{ds}}.json",
+    dag         = classifications_dag,
+)
 
-load_classfications = DummyOperator(task_id="load_classfications", dag=dag3)
+transform_classfications = DummyOperator(task_id="transform_classfications", dag=classifications_dag)
 
-export_classifications >> transform_classfications >> load_classfications
+load_classfications = DummyOperator(task_id="load_classfications", dag=classifications_dag)
+
+
+create_temp_database >> export_classifications >> accumulate_classifications >> transform_classfications >> load_classfications
 
 ################### TESTING ZENODO
-dag_zen = DAG(
+publishing_dag = DAG(
     'zenodo',
     default_args      = default_args,
-    description       = 'Testing Zenodo publication workflows',
+    description       = 'Publication workflow',
     schedule_interval = '@monthly',
     start_date        = days_ago(2),
     tags              = ['ACTION PROJECT'],
@@ -252,13 +270,5 @@ publish_to_zenodo = ZenodoPublishDatasetOperator(
     version     = '21.05',
     creators    = [{'name': "Gonzalez, Rafael"}],
     communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project"}],
-    dag         = dag_zen,
-)
-
-# Example of creating a task that calls an sql command from an external file.
-create_temp_database = SqliteOperator(
-    task_id='create_table_sqlite_external_file',
-    sqlite_conn_id='streetspectra-temp-db',
-    sql=SQL_STREETSPECTRA_SCHEMA + ' ', # This is a hack for Jinja2 template not to raise error
-    dag=dag_zen,
+    dag         = publishing_dag,
 )

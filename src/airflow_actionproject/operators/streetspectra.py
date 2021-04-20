@@ -132,7 +132,7 @@ class EC5TransformOperator(BaseOperator):
 
 class ZooniverseImportOperator(BaseOperator):
 
-	template_fields = ("_input_path, _display_name")
+	template_fields = ("_input_path", "_display_name")
 
 
 	@apply_defaults
@@ -163,56 +163,57 @@ class ZooniverseAccumulateOperator(BaseOperator):
 	SQLite connection id for the Consolidation Database.
 	"""
 
-	template_fields = ("_input_path, _display_name")
+	template_fields = ("_input_path",)
 
 
 	@apply_defaults
-	def __init__(self, input_path, sqlite_conn_id, **kwargs):
+	def __init__(self, input_path, conn_id, **kwargs):
 		super().__init__(**kwargs)
 		self._input_path = input_path
-		self._conn_id    = sqlite_conn_id
+		self._conn_id    = conn_id
 
 	def execute(self, context):
 		self.log.info(f"Consolidating data from {self._input_path}")
-		with open(self._input_file) as fd:
+		with open(self._input_path) as fd:
 			raw_exported = json.load(fd)
 		hook = SqliteHook(sqlite_conn_id=self._conn_id)
 		for record in raw_exported:
 			record['gold_standard'] = json.dumps(record['gold_standard'])
-			record['expert']       = json.dumps(record['expert'])
-			record['annotations']  = json.dumps(record['annotations'])
-			record['subject_data'] = json.dumps(record['subject_data'])
-			record['subject_ids']  = json.dumps(record['subject_ids'])
-	     #    hook.run(
-	     #    	'''
-	     #    		INSERT OR REPLACE INTO zooniverse_export_t (
-	     #    			classification_id,
-						# user_name,
-						# user_id,
-						# workflow_id,
-						# workflow_name,	
-						# workflow_version,
-						# created_at,	
-						# gold_standard,	
-						# expert,	
-						# metadata,	
-						# annotations,	
-						# subject_data,
-						# subject_ids
-	     #    		) VALUES (
-	     #    			:classification_id,
-						# :user_name,
-						# :user_id,
-						# :workflow_id,
-						# :workflow_name,	
-						# :workflow_version,
-						# :created_at,	
-						# :gold_standard,	
-						# :expert,	
-						# :metadata,	
-						# :annotations,	
-						# :subject_data,
-						# :subject_ids
-	     #    		)
-	     #    	''', parameters=record)
-	      
+			record['expert']        = json.dumps(record['expert'])
+			record['annotations']   = json.dumps(record['annotations'])
+			record['metadata']      = json.dumps(record['metadata'])
+			record['subject_data']  = json.dumps(record['subject_data'])
+			record['subject_ids']   = json.dumps(record['subject_ids'])
+			hook.run(
+				'''
+				INSERT OR REPLACE INTO zooniverse_export_t (
+					classification_id,
+					user_name,
+					user_id,
+					workflow_id,
+					workflow_name,  
+					workflow_version,
+					created_at, 
+					gold_standard,  
+					expert, 
+					metadata,   
+					annotations,    
+					subject_data,
+					subject_ids
+				) VALUES (
+					:classification_id,
+					:user_name,
+					:user_id,
+					:workflow_id,
+					:workflow_name, 
+					:workflow_version,
+					:created_at,    
+					:gold_standard, 
+					:expert,    
+					:metadata,  
+					:annotations,   
+					:subject_data,
+					:subject_ids
+				)
+				''', parameters=record)
+		  
