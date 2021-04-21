@@ -1,16 +1,29 @@
 Short-term
 ==========
-* depurar Zendodo Hook y Operator
-  - depurar cada step, haciendo un operador de testeo en cada paso
-  - que pasa con el searchg que devuelve cuando no lo encuentra
-  - que pasa cuando se publica 'draft', que se devuelve en lugar de un doi
+* Refacturizar paquete
+- sacar las aplicaciones de apoyo a un paquete separado
+- meter una aplicacion de instalar dag
+- El directorio de data/sql y data/dags que cuelgue mejor del paquete padre
+* Depurar el list de la BD de Mongo con Esteban
 
-* How to manage variables:
-  with "airflow variables set KEY VALUE" 
-  and via API
-     from airflow.models import Variable
-     Variable.set("column_number", int(column_number) + 1)
-     value = Variable.get("column number")
+Test cases
+==========
+1) Crear un nuevo proyecto de prueba en Zooniverse street-spectra-test-2
+  - con su nuevo workflow y tarea con 2 tools y subtareas
+  - atencion al orden de las clasificaciones en la subtarea
+2) Probar que pasa con manage_workflows cuando no hay subject sets
+3) probar a exportar sin subject sets
+4) preparar un subject set de 10 imagenes y cargarlo
+5) Exportar clasificaciones sin haber clasificado nada
+- A ver si exporta algo para las 10 imagienes
+- anotar lo que observo
+6) Clasificar 3 imagenes
+7) Exportar clasificaciones y examinar el resultado
+- A ver si exporta algo para las 3 o 10 imagenes.
+- anotar lo que observo
+8) Clasificar 5 imagenes más
+9) disparar el workflow de refill
+
 
 Mid-term
 ========

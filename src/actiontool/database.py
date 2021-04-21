@@ -10,30 +10,28 @@
 # System wide imports
 # -------------------
 
-# ---------------
-# Airflow imports
-# ---------------
 
-#--------------
-# local imports
-# -------------
 
-from airflow_actionproject._version import get_versions
+# ----------------
+# Module constants
+# ----------------
 
 
 # -----------------------
 # Module global variables
 # -----------------------
 
-# ----------------
-# Module constants
-# ----------------
+log = logging.getLogger("dbase")
 
-# All this must be stripped from the final script after we polish it
+# ----------------------
+# Command implementation
+# ----------------------
 
-DEFAULT_TIMEOUT = 20*60 # Twenty minutes
-DEFAULT_LANGUAGE = 'en'
 
-__version__ = get_versions()['version']
 
-del get_versions
+# ----------------------
+# COMMAND IMPLEMENTATION
+# ----------------------
+
+def install(options):
+	log.info(f"Installing database {options.name} into {options.directory}")
