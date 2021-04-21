@@ -46,3 +46,4 @@ def install(options):
 	src_filename = os.path.join(RESOURCES_DAGS_DIR, filename)
 	dest_filename = os.path.join(options.directory, filename)
 	shutil.copy2(src_filename, dest_filename)
+	log.info(f"Copied dag file'{src_filename}' into '{dest_filename}'")

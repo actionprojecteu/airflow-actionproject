@@ -21,7 +21,7 @@
 # Module global variables
 # -----------------------
 
-log = logging.getLogger("dbase")
+log = logging.getLogger("actiontool")
 
 # ----------------------
 # Command implementation

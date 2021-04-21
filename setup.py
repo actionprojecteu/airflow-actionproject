@@ -30,7 +30,10 @@ CLASSIFIERS  = [
 ]
 
 PACKAGE_DATA = {
-    'airflow_actionproject.operators': ['data/*.sql',],
+    'actiontool': [
+        'data/dags/*.py',
+        'data/sql/*.sql'
+    ],
 }
 
 SCRIPTS = []
