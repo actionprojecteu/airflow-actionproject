@@ -28,7 +28,7 @@ from . import RESOURCES_DAGS_DIR
 # Module global variables
 # -----------------------
 
-log = logging.getLogger("dags")
+log = logging.getLogger("actiontool")
 
 # ----------------------
 # Command implementation
@@ -40,7 +40,7 @@ log = logging.getLogger("dags")
 # ----------------------
 
 def install(options):
-	log.info(f"Installing dag {options.name} into {options.directory}")
+	log.info(f"Installing dag '{options.name}' into '{options.directory}'")
 	os.makedirs(options.directory, exist_ok=True)
 	filename = options.name + '.py'
 	src_filename = os.path.join(RESOURCES_DAGS_DIR, filename)

@@ -29,7 +29,7 @@ from . import  __version__
 # Module global variables
 # -----------------------
 
-log = logging.getLogger("dagtool")
+log = logging.getLogger("actiontool")
 
 # -----------------------
 # Module global functions
@@ -104,8 +104,8 @@ def createParser():
 	subparser = parser_dags.add_subparsers(dest='subcommand')
 
 	parser_dags_install = subparser.add_parser('install', help='Install StreetSpectra DAGs')
-	parser_dags_install.add_argument('name',  type=str, required=True, help='Airflow DAG file to install [without .py]')
-	parser_dags_install.add_argument('directory',  type=str, required=True, help='Airflow DAGs Directory where to copy')
+	parser_dags_install.add_argument('name',  type=str, help='Airflow DAG file to install [without .py]')
+	parser_dags_install.add_argument('directory',  type=str, help='Airflow DAGs Directory where to copy')
 
 	# -----------------
 	# Database Commands
@@ -114,8 +114,8 @@ def createParser():
 	subparser = parser_db.add_subparsers(dest='subcommand')
 
 	parser_db_install = subparser.add_parser('install', help='Install Auxiliar SQLite database')
-	parser_db_install.add_argument('name',  type=str, required=True, help='Database file to install [without .sql]')
-	parser_db_install.add_argument('directory',  type=str, required=True, help='Airflow Auxiliar Directory where to copy')
+	parser_db_install.add_argument('name',  type=str, help='Database file to install [without .sql]')
+	parser_db_install.add_argument('directory',  type=str, help='Airflow Auxiliar Directory where to create the database')
 
 	return parser
 
