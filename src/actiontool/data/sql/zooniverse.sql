@@ -2,10 +2,16 @@
 -- Auxiliar database to avoid duplicate observations into the ACTION Database
 -----------------------------------------------------------------------------
 
+------------------------------------------------------------------------
+-- This is the current Zooniverse export data format
+-- Some columns are complex like metadata, annotations and subject_data
+-- which containes nested ifnromation
+------------------------------------------------------------------------
+
 CREATE TABLE IF NOT EXISTS zooniverse_export_t
 (
     classification_id   INTEGER,
-    user_name           TEXT,   -- only for registered users
+    user_name           TEXT,    -- only for registered users
     user_id             INTEGER, -- only for registered users
     user_ip             TEXT,
     workflow_id         INTEGER,    
