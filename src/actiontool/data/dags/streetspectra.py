@@ -217,15 +217,6 @@ classifications_dag = DAG(
     tags              = ['ACTION PROJECT'],
 )
 
-# Example of creating a task that calls an sql command from an external file.
-# This should not probably be a task but a provisioning proecedure beforehand
-create_temp_database = SqliteOperator(
-    task_id='create_table_sqlite_external_file',
-    sqlite_conn_id='streetspectra-temp-db',
-    sql=SQL_ZOONIVERSE_SCHEMA + ' ', # This is a hack for Jinja2 template not to raise error
-    dag=classifications_dag,
-)
-
 export_classifications = ZooniverseExportOperator(
     task_id     = "export_classifications",
     conn_id     = "zooniverse-streetspectra-test",
@@ -254,7 +245,7 @@ transform_classfications = ZooniverseTransformOperator(
 
 load_classfications = DummyOperator(task_id="load_classfications", dag=classifications_dag)
 
-create_temp_database >> export_classifications >> only_new_classifications >> transform_classfications >> load_classfications
+export_classifications >> only_new_classifications >> transform_classfications >> load_classfications
 
 ################### TESTING ZENODO
 publishing_dag = DAG(
