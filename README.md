@@ -165,7 +165,7 @@ airflow connections add \
 --conn-port 443 \
 --conn-login "<my login>" \
 --conn-password "<my password>" \
---conn-schema "street-spectra-test-1" \
+--conn-schema "street-spectra-test-2" \
 --conn-description "Connection to Zooniverse citizen science web portal" \
 zooniverse-streetspectra-test
 ```
