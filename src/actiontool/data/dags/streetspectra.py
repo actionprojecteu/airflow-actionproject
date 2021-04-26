@@ -30,8 +30,6 @@ from airflow.providers.sqlite.operators.sqlite import SqliteOperator
 # custom Airflow imports
 # ----------------------
 
-from airflow_actionproject.operators import SQL_ZOONIVERSE_SCHEMA
-
 from airflow_actionproject.operators.epicollect5   import EC5ExportEntriesOperator
 from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperator, ZooniverseDeltaOperator
 from airflow_actionproject.operators.zenodo        import ZenodoPublishDatasetOperator
