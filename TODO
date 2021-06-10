@@ -1,10 +1,8 @@
 Short-term
 ==========
 * Refacturizar paquete
-- sacar las aplicaciones de apoyo a un paquete separado
-- meter una aplicacion de instalar dag
-- El directorio de data/sql y data/dags que cuelgue mejor del paquete padre
 * Depurar el list de la BD de Mongo con Esteban
+  - es la tarea airflow download_from_action
 
 Test cases
 ==========
