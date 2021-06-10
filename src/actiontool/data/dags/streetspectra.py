@@ -105,7 +105,7 @@ transform_ec5_observations = EC5TransformOperator(
 
 load_ec5_observations = ActionUploadOperator(
     task_id    = "load_ec5_observations",
-    conn_id    = "action-database",
+    conn_id    = "action-database-streetspectra",
     input_path = "/tmp/ec5/street-spectra/transformed-{{ds}}.json",
     dag        = street_spectra_dag,
 )
