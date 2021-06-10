@@ -89,7 +89,7 @@ street_spectra_dag = DAG(
 
 export_ec5_observations = EC5ExportEntriesOperator(
     task_id      = "export_ec5_observations",
-    conn_id      = "epicollect5",
+    conn_id      = "epicollect5-streetspectra",
     start_date   = "{{ds}}",
     end_date     = "{{next_ds}}",
     output_path  = "/tmp/ec5/street-spectra/{{ds}}.json",
