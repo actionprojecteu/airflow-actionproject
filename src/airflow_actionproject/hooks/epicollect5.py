@@ -13,6 +13,7 @@
 import json
 import requests
 import time
+import datetime
 
 # ---------------
 # Airflow imports
@@ -114,6 +115,8 @@ class EpiCollect5Hook(BaseHook):
 		Page size to fetch from the API. Larger values
 		mean less requests, but more data transferred per request.
 		"""
+		# Corrects end time by removing one day (fixing loop boundary problem)
+		end_date = (datetime.datetime.strptime(end_date, "%Y-%m-%d") - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 		session, url, page_size = self.get_conn()
 		self.log.info(f"Getting Epicollect V Entries for project {self._project_slug}")
 		params = {
