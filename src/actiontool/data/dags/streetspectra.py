@@ -75,12 +75,12 @@ default_args = {
 # 3. Load into ACTION PROJECT Observations Database
 
 street_spectra_dag = DAG(
-    'street_spectra',
+    'street_spectra_ec5',
     default_args      = default_args,
     description       = 'StreetSpectra Observations ETL',
     schedule_interval = '@monthly',
     start_date        = datetime(year=2019, month=1, day=1),
-    tags              = ['ACTION PROJECT'],
+    tags              = ['StreetSpectra', 'ACTION PROJECT'],
 )
 
 # -----
