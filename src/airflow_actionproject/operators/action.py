@@ -138,7 +138,7 @@ class ActionDownloadFromStartDateOperator(BaseOperator):
 		self._conn_id = conn_id
 		self._output_path = output_path
 		self._start_date = start_date
-		self._end_date = '2999-12-31'	# far away
+		self._end_date = '2999-12-31T23:59:59.99999Z'	# far away
 		self._n_entries = n_entries
 		self._obs_type = obs_type
 		self._project = project
@@ -159,7 +159,7 @@ class ActionDownloadFromStartDateOperator(BaseOperator):
 			N = len(observations)
 			excess = N - self._n_entries
 			if excess > 0:
-				self.log.info(f"Got {N} entries, excess of {excess} entries found")
+				self.log.info(f"Got {N} entries, discarding last {excess} entries")
 				observations = observations[:-excess]
 			self.log.info(f"Fetched {len(observations)} entries")
 		# Make sure the output directory exists.
@@ -199,8 +199,8 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
 		self._conn_id = conn_id
 		self._output_path = output_path
 		self._key = variable_name
-		self._end_date = '2999-12-31'	# far away
-		self._n_entries = n_entries + 1
+		self._end_date = '2999-12-31T23:59:59.99999Z'	# far away
+		self._n_entries = n_entries + 1 # taking into account that we will discard the tast one
 		self._obs_type = obs_type
 		self._project = project
 
@@ -221,7 +221,7 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
 			N = len(observations)
 			excess = N - self._n_entries
 			if excess > 0:
-				self.log.info(f"Got {N} entries, excess of {excess} entries found")
+				self.log.info(f"Got {N} entries, discarding last {excess} entries")
 				observations = observations[:-excess]
 			self.log.info(f"Fetched {len(observations)} entries")
 		# Removes the last item and updates the timestamp marker

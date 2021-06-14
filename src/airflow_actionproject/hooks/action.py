@@ -132,7 +132,7 @@ class ActionDatabaseHook(BaseHook):
 		session, url, page_size, delay = self.get_conn()
 		self.log.info(f"Uploading {len(observations)} observations to ACTION Database")
 		for observation in observations:
-			observation["written_at"] = datetime.datetime.utcnow().strftime("%Y-%m-%DT%H:%M:%S.%fZ")
+			observation["written_at"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 			response = session.post(url, json=observation)
 			response.raise_for_status()
 			time.sleep(delay)

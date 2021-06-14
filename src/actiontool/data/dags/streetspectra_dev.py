@@ -105,7 +105,7 @@ transform_ec5_observations = EC5TransformOperator(
 
 load_ec5_observations = ActionUploadOperator(
     task_id    = "load_ec5_observations",
-    conn_id    = "action-database-streetspectra",
+    conn_id    = "action-database-streetspectra-streetspectra",
     input_path = "/tmp/ec5/street-spectra/transformed-{{ds}}.json",
     dag        = street_spectra_dag,
 )
@@ -158,9 +158,21 @@ check_enough_observations = ShortCircuitOperator(
 
 download_from_action = ActionDownloadFromVariableDateOperator(
     task_id        = "download_from_action",
-    conn_id        = "action-database",
+    conn_id        = "action-database-streetspectra",
     output_path    = "/tmp/zooniverse/streetspectra/action-{{ds}}.json",
     variable_name  = "action_ss_read_tstamp",
+    n_entries      = 10,                # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
+    project        = "street-spectra", 
+    obs_type       = "observation",
+    dag            = street_spectra_zoo,
+)
+
+from airflow_actionproject.operators.action        import ActionDownloadFromStartDateOperator
+download_from_action = ActionDownloadFromStartDateOperator(
+    task_id        = "download_from_action2",
+    conn_id        = "action-database-streetspectra",
+    output_path    = "/tmp/zooniverse/streetspectra/action-{{ds}}.json",
+    start_date     = "2020-01-01T17:15:49.000000Z",
     n_entries      = 10,                # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
     project        = "street-spectra", 
     obs_type       = "observation",
