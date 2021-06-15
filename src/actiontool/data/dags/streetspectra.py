@@ -89,7 +89,7 @@ street_spectra_dag = DAG(
 
 export_ec5_observations = EC5ExportEntriesOperator(
     task_id      = "export_ec5_observations",
-    conn_id      = "epicollect5-streetspectra",
+    conn_id      = "streetspectra-epicollect5",
     start_date   = "{{ds}}",
     end_date     = "{{next_ds}}",
     output_path  = "/tmp/ec5/street-spectra/{{ds}}.json",
@@ -105,7 +105,7 @@ transform_ec5_observations = EC5TransformOperator(
 
 load_ec5_observations = ActionUploadOperator(
     task_id    = "load_ec5_observations",
-    conn_id    = "action-database-streetspectra",
+    conn_id    = "streetspectra-action-database",
     input_path = "/tmp/ec5/street-spectra/transformed-{{ds}}.json",
     dag        = street_spectra_dag,
 )

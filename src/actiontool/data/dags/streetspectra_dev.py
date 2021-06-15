@@ -89,7 +89,7 @@ street_spectra_dag = DAG(
 
 export_ec5_observations = EC5ExportEntriesOperator(
     task_id      = "export_ec5_observations",
-    conn_id      = "epicollect5-streetspectra",
+    conn_id      = "streetspectra-epicollect5",
     start_date   = "{{ds}}",
     end_date     = "{{next_ds}}",
     output_path  = "/tmp/ec5/street-spectra/{{ds}}.json",
@@ -105,7 +105,7 @@ transform_ec5_observations = EC5TransformOperator(
 
 load_ec5_observations = ActionUploadOperator(
     task_id    = "load_ec5_observations",
-    conn_id    = "action-database-streetspectra-streetspectra",
+    conn_id    = "streetspectra-action-database",
     input_path = "/tmp/ec5/street-spectra/transformed-{{ds}}.json",
     dag        = street_spectra_dag,
 )
@@ -137,7 +137,7 @@ manage_subject_sets = ShortCircuitOperator(
     task_id         = "manage_subject_sets",
     python_callable = zooniverse_manage_subject_sets,
     op_kwargs = {
-        "conn_id"  : "zooniverse-streetspectra-test",
+        "conn_id"  : "streetspectra-zooniverse-test",
         "threshold": 75,    # 75% workflow completion status
     },
     dag           = street_spectra_zoo
@@ -147,7 +147,7 @@ check_enough_observations = ShortCircuitOperator(
     task_id         = "check_enough_observations",
     python_callable = check_number_of_entries,
     op_kwargs = {
-        "conn_id"    : "zooniverse-streetspectra-test",
+        "conn_id"    : "streetspectra-zooniverse-test",
         "start_date" : "2019-09-01",    # ESTA ES LA PRIMERA FECHA EN LA QUE HAY ALGO
         "n_entries"  : 10,              # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
         "project"    : "street-spectra",
@@ -158,7 +158,7 @@ check_enough_observations = ShortCircuitOperator(
 
 download_from_action = ActionDownloadFromVariableDateOperator(
     task_id        = "download_from_action",
-    conn_id        = "action-database-streetspectra",
+    conn_id        = "streetspectra-action-database",
     output_path    = "/tmp/zooniverse/streetspectra/action-{{ds}}.json",
     variable_name  = "action_ss_read_tstamp",
     n_entries      = 10,                # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
@@ -170,7 +170,7 @@ download_from_action = ActionDownloadFromVariableDateOperator(
 from airflow_actionproject.operators.action        import ActionDownloadFromStartDateOperator
 download_from_action = ActionDownloadFromStartDateOperator(
     task_id        = "download_from_action2",
-    conn_id        = "action-database-streetspectra",
+    conn_id        = "streetspectra-action-database",
     output_path    = "/tmp/zooniverse/streetspectra/action-{{ds}}.json",
     start_date     = "2020-01-01T17:15:49.000000Z",
     n_entries      = 10,                # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
@@ -218,7 +218,7 @@ classifications_dag = DAG(
 
 export_classifications = ZooniverseExportOperator(
     task_id     = "export_classifications",
-    conn_id     = "zooniverse-streetspectra-test",
+    conn_id     = "streetspectra-zooniverse-test",
     output_path = "/tmp/zooniverse/whole-{{ds}}.json",
     generate    = True, 
     wait        = True, 
@@ -262,7 +262,7 @@ publishing_dag = DAG(
 
 publish_to_zenodo = ZenodoPublishDatasetOperator(
     task_id     = "publish_to_zenodo",
-    conn_id     = "zenodo-sandbox",
+    conn_id     = "streetspectra-zenodo-sandbox",
     title       = "Prueba 15",
     file_path   = "example.txt",
     description = "Testing Prueba 15",
