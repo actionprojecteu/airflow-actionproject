@@ -125,14 +125,6 @@ street_spectra_zoo = DAG(
     tags              = ['StreetSpectra', 'ACTION PROJECT'],
 )
 
-email_team = EmailOperator(
-    task_id      = "email_team",
-    to           = ["astrorafael@gmail.com","rafael08@ucm.es"],
-    subject      = "New StreetSpectra Subject Set being uploaded to Zooniverse",
-    html_content = "Subject Set {{ds}} being uploaded.",
-    dag          = street_spectra_zoo,
-)
-
 manage_subject_sets = ShortCircuitOperator(
     task_id         = "manage_subject_sets",
     python_callable = zooniverse_manage_subject_sets,
@@ -143,12 +135,21 @@ manage_subject_sets = ShortCircuitOperator(
     dag           = street_spectra_zoo
 )
 
+email_team = EmailOperator(
+    task_id      = "email_team",
+    to           = ["astrorafael@gmail.com","rafael08@ucm.es"],
+    subject      = "New StreetSpectra Subject Set being uploaded to Zooniverse",
+    html_content = "Subject Set {{ds}} being uploaded.",
+    dag          = street_spectra_zoo,
+)
+
+
 check_enough_observations = ShortCircuitOperator(
     task_id         = "check_enough_observations",
     python_callable = check_number_of_entries,
     op_kwargs = {
         "conn_id"    : "streetspectra-zooniverse-test",
-        "start_date" : "2019-09-01",    # ESTA ES LA PRIMERA FECHA EN LA QUE HAY ALGO
+        "start_date" : "2019-09-01T00:00:00.00000Z",    # ESTA ES LA PRIMERA FECHA EN LA QUE HAY ALGO
         "n_entries"  : 10,              # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
         "project"    : "street-spectra",
         "obs_type"   : 'observation',
