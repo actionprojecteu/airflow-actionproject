@@ -64,7 +64,7 @@ class EC5ExportEntriesOperator(BaseOperator):
 
 	def execute(self, context):
 		with EpiCollect5Hook(self._conn_id) as hook:
-			self.log.info(f"Fetching entries for {self._start_date} to {self._end_date}")
+			self.log.info(f"Fetching entries from {self._start_date} to {self._end_date} included")
 			entries = list(
 				hook.get_entries( 
 					start_date = self._start_date,

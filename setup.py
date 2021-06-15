@@ -36,7 +36,9 @@ PACKAGE_DATA = {
     ],
 }
 
-SCRIPTS = []
+SCRIPTS = [
+    "scripts/actiontool"
+]
 
 
 DATA_FILES  = [ 
