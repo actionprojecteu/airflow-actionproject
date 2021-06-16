@@ -155,7 +155,7 @@ airflow connections add \
 --conn-schema "action-street-spectra" \
 --conn-extra '{"page_size": 10}' \
 --conn-description "Connection to Epicollect V mobile gathering platform" \
-epicollect5
+streetspectra-epicollect5
 ```
 
 ```bash
@@ -167,7 +167,7 @@ airflow connections add \
 --conn-password "<my password>" \
 --conn-schema "street-spectra-test-2" \
 --conn-description "Connection to Zooniverse citizen science web portal" \
-zooniverse-streetspectra-test
+streetspectra-zooniverse-test
 ```
 
 ```bash
@@ -179,7 +179,7 @@ airflow connections add \
 --conn-schema "observations" \
 --conn-extra '{"page_size": 100, "tps": 2}' \
 --conn-description "Connection to ACTION observations database" \
-action-database
+streetspectra-action-database
 ```
 
 ```bash
@@ -190,14 +190,14 @@ airflow connections add \
 --conn-password "<API key>" \
 --conn-extra '{"page_size": 100, "tps": 2}' \
 --conn-description "Connection to Zenodo sandbox environment" \
-zenodo-sandbox
+streetspectra-zenodo-sandbox
 ```
 
 ```bash
 airflow connections add \
 --conn-type sqlite \
---conn-host  "/home/rafa/airflow/extra_dbase/street_spectra.db" \
---conn-description "Connection to Temporary SQLite Database for StreetSpectra" \
+--conn-host  "/home/rafa/airflow/extra_dbase/streetspectra.db" \
+--conn-description "Connection to StreetSpectra temporary SQLite database" \
 streetspectra-temp-db
 ```
 

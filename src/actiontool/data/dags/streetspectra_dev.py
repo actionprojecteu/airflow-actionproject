@@ -135,13 +135,17 @@ manage_subject_sets = ShortCircuitOperator(
     dag           = street_spectra_zoo
 )
 
-email_team = EmailOperator(
-    task_id      = "email_team",
-    to           = ["astrorafael@gmail.com","rafael08@ucm.es"],
-    subject      = "New StreetSpectra Subject Set being uploaded to Zooniverse",
-    html_content = "Subject Set {{ds}} being uploaded.",
-    dag          = street_spectra_zoo,
-)
+# This needs to be configured:
+# WARNING - section/key [smtp/smtp_user] not found in config
+# See https://stackoverflow.com/questions/51829200/how-to-set-up-airflow-send-email
+
+# email_team = EmailOperator(
+#     task_id      = "email_team",
+#     to           = ["astrorafael@gmail.com","rafael08@ucm.es"],
+#     subject      = "New StreetSpectra Subject Set being uploaded to Zooniverse",
+#     html_content = "Subject Set {{ds}} being uploaded.",
+#     dag          = street_spectra_zoo,
+# )
 
 
 check_enough_observations = ShortCircuitOperator(
@@ -173,7 +177,7 @@ download_from_action = ActionDownloadFromStartDateOperator(
     task_id        = "download_from_action2",
     conn_id        = "streetspectra-action-database",
     output_path    = "/tmp/zooniverse/streetspectra/action-{{ds}}.json",
-    start_date     = "2020-01-01T17:15:49.000000Z",
+    start_date     = "2020-01-01T00:00:00.000000Z",
     n_entries      = 10,                # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
     project        = "street-spectra", 
     obs_type       = "observation",
@@ -194,7 +198,8 @@ else:
     )
 
 # Task dependencies
-manage_subject_sets >> email_team >> check_enough_observations >> download_from_action >> upload_new_subject_set
+#manage_subject_sets >> email_team >> check_enough_observations >> download_from_action >> upload_new_subject_set
+manage_subject_sets >> check_enough_observations >> download_from_action >> upload_new_subject_set
 
 
 # ===================================
