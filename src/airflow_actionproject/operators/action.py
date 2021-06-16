@@ -218,12 +218,12 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
 					obs_type   = self._obs_type,
 				)
 			)
-			N = len(observations)
-			excess = N - self._n_entries
-			if excess > 0:
-				self.log.info(f"Got {N} entries, discarding last {excess} entries")
-				observations = observations[:-excess]
-			self.log.info(f"Fetched {len(observations)} entries")
+		N = len(observations)
+		excess = N - self._n_entries
+		if excess > 0:
+			self.log.info(f"Got {N} entries, discarding last {excess} entries")
+			observations = observations[:-excess]
+		self.log.info(f"Fetched {len(observations)} entries")
 		# Removes the last item and updates the timestamp marker
 		last_item = observations.pop()
 		Variable.set(self._key, last_item['created_at'])
