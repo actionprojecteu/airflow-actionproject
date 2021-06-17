@@ -118,7 +118,7 @@ class EC5TransformOperator(BaseOperator):
 		# Add extra items
 		item["project"] = "street-spectra"
 		item["source"] = "Epicollect5"
-		item["type"] = "observation"
+		item["obs_type"] = "observation"
 		return item
 
 
@@ -199,7 +199,7 @@ class ZooniverseTransformOperator(BaseOperator):
 		# Add extra items
 		item["project"] = "street-spectra"
 		item["source"] = "Zooniverse"
-		item["type"] = "classification"
+		item["obs_type"] = "classification"
 		return item
 
 
