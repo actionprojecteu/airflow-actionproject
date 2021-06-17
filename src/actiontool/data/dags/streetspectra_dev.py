@@ -139,20 +139,20 @@ manage_subject_sets = ShortCircuitOperator(
 # WARNING - section/key [smtp/smtp_user] not found in config
 # See https://stackoverflow.com/questions/51829200/how-to-set-up-airflow-send-email
 
-# email_team = EmailOperator(
-#     task_id      = "email_team",
-#     to           = ["astrorafael@gmail.com","rafael08@ucm.es"],
-#     subject      = "New StreetSpectra Subject Set being uploaded to Zooniverse",
-#     html_content = "Subject Set {{ds}} being uploaded.",
-#     dag          = street_spectra_zoo,
-# )
+email_new_subject_set = EmailOperator(
+    task_id      = "email_new_subject_set",
+    to           = ("astrorafael@gmail.com",),
+    subject      = "New StreetSpectra Subject Set being uploaded to Zooniverse",
+    html_content = "Subject Set {{ds}} being uploaded.",
+    dag          = street_spectra_zoo,
+)
 
 
 check_enough_observations = ShortCircuitOperator(
     task_id         = "check_enough_observations",
     python_callable = check_number_of_entries,
     op_kwargs = {
-        "conn_id"    : "streetspectra-zooniverse-test",
+        "conn_id"    : "streetspectra-action-database",
         "start_date" : "2019-09-01T00:00:00.00000Z",    # ESTA ES LA PRIMERA FECHA EN LA QUE HAY ALGO
         "n_entries"  : 10,              # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
         "project"    : "street-spectra",
@@ -166,18 +166,6 @@ download_from_action = ActionDownloadFromVariableDateOperator(
     conn_id        = "streetspectra-action-database",
     output_path    = "/tmp/zooniverse/streetspectra/action-{{ds}}.json",
     variable_name  = "action_ss_read_tstamp",
-    n_entries      = 10,                # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
-    project        = "street-spectra", 
-    obs_type       = "observation",
-    dag            = street_spectra_zoo,
-)
-
-from airflow_actionproject.operators.action        import ActionDownloadFromStartDateOperator
-download_from_action = ActionDownloadFromStartDateOperator(
-    task_id        = "download_from_action2",
-    conn_id        = "streetspectra-action-database",
-    output_path    = "/tmp/zooniverse/streetspectra/action-{{ds}}.json",
-    start_date     = "2020-01-01T00:00:00.000000Z",
     n_entries      = 10,                # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
     project        = "street-spectra", 
     obs_type       = "observation",
@@ -198,8 +186,8 @@ else:
     )
 
 # Task dependencies
-#manage_subject_sets >> email_team >> check_enough_observations >> download_from_action >> upload_new_subject_set
-manage_subject_sets >> check_enough_observations >> download_from_action >> upload_new_subject_set
+manage_subject_sets >> email_new_subject_set >> check_enough_observations >> download_from_action >> upload_new_subject_set
+#manage_subject_sets >> check_enough_observations >> download_from_action >> upload_new_subject_set
 
 
 # ===================================

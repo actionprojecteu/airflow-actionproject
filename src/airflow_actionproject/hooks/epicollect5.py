@@ -60,12 +60,14 @@ class EpiCollect5Hook(BaseHook):
 			host   = config.host      or self.DEFAULT_HOST
 			port   = config.port      or self.DEFAULT_PORT
 			self._project_slug = config.schema
-			try:
-				extra  = json.loads(config.extra)
-			except json.decoder.JSONDecodeError:
-				self._page_size = self.DEFAULT_PAGE_SIZE
-			else:
-				self._page_size = extra.get("page_size", self.DEFAULT_PAGE_SIZE)
+			self._page_size =  self.DEFAULT_PAGE_SIZE
+			if config.extra:
+				try:
+					extra  = json.loads(config.extra)
+				except json.decoder.JSONDecodeError:
+					self._page_size = self.DEFAULT_PAGE_SIZE
+				else:
+					self._page_size = extra.get("page_size", self.DEFAULT_PAGE_SIZE)
 			self._url = f"{ctyp}://{host}:{port}{self.API_SLUG}/{self._project_slug}"
 			self._session = requests.Session()
 		return self._session, self._url, self._page_size

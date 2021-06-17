@@ -51,7 +51,7 @@ class ActionDatabaseHook(BaseHook):
 
 	def get_conn(self):
 		if self._session is None:
-			self.log.debug(f"getting connection information from {self._conn_id}")
+			self.log.info(f"getting connection information from {self._conn_id}")
 			config = self.get_connection(self._conn_id)
 			# Define API base url.
 			ctyp   = config.conn_type or self.DEFAULT_CONN_TYPE
@@ -61,13 +61,14 @@ class ActionDatabaseHook(BaseHook):
 			token  = config.password
 			self._page_size = self.DEFAULT_PAGE_SIZE
 			self._delay     = 1.0/self.DEFAULT_TPS
-			try:
-				extra  = json.loads(config.extra)
-			except json.decoder.JSONDecodeError:
-				pass
-			else:
-				self._page_size = extra.get("page_size", self.DEFAULT_PAGE_SIZE)
-				self._delay = 1.0/extra.get("tps", self.DEFAULT_TPS)
+			if config.extra:
+				try:
+					extra  = json.loads(config.extra)
+				except json.decoder.JSONDecodeError:
+					pass
+				else:
+					self._page_size = extra.get("page_size", self.DEFAULT_PAGE_SIZE)
+					self._delay = 1.0/extra.get("tps", self.DEFAULT_TPS)
 			self._base_url = f"{ctyp}://{host}:{port}/{slug}"
 			self._session  = requests.Session()
 			self._session.headers.update({'Authorization': f"Bearer {token}"})
