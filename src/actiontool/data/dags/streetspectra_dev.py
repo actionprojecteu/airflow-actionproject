@@ -21,7 +21,7 @@ from airflow.utils.dates import days_ago
 
 from airflow.operators.bash import BashOperator
 from airflow.operators.dummy import DummyOperator
-from airflow.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.operators.python import PythonOperator, ShortCircuitOperator, BranchPythonOperator
 from airflow.operators.email  import EmailOperator
 from airflow.providers.sqlite.operators.sqlite import SqliteOperator
 
@@ -142,30 +142,40 @@ manage_subject_sets = ShortCircuitOperator(
 email_new_subject_set = EmailOperator(
     task_id      = "email_new_subject_set",
     to           = ("astrorafael@gmail.com",),
-    subject      = "New StreetSpectra Subject Set being uploaded to Zooniverse",
-    html_content = "Subject Set {{ds}} being uploaded.",
+    subject      = "[StreetSpectra] Airflow info: new Zooniverse Subject Set",
+    html_content = "About to create a new Zooniverse Subject Set {{ds}}.",
     dag          = street_spectra_zoo,
 )
 
-
-check_enough_observations = ShortCircuitOperator(
+check_enough_observations = BranchPythonOperator(
     task_id         = "check_enough_observations",
     python_callable = check_number_of_entries,
     op_kwargs = {
-        "conn_id"    : "streetspectra-action-database",
-        "start_date" : "2019-09-01T00:00:00.00000Z",    # ESTA ES LA PRIMERA FECHA EN LA QUE HAY ALGO
-        "n_entries"  : 10,              # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
-        "project"    : "street-spectra",
-        "obs_type"   : 'observation',
+        "conn_id"       : "streetspectra-action-database",
+        "start_date"    : "2019-09-01T00:00:00.00000Z",    # ESTA ES LA PRIMERA FECHA EN LA QUE HAY ALGO
+        "n_entries"     : 10,              # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
+        "project"       : "street-spectra",
+        "true_task_id"  : "download_from_action",
+        "false_task_id" : "email_no_images",
+        "obs_type"      : 'observation',
     },
     dag           = street_spectra_zoo
+)
+
+
+email_no_images = EmailOperator(
+    task_id      = "email_no_images",
+    to           = ("astrorafael@gmail.com",),
+    subject      = "[StreetSpectra] Airflow warn: No ACTION images left",
+    html_content = "No images left in ACTION database to create an new Zooniverse Subject Set.",
+    dag          = street_spectra_zoo,
 )
 
 download_from_action = ActionDownloadFromVariableDateOperator(
     task_id        = "download_from_action",
     conn_id        = "streetspectra-action-database",
     output_path    = "/tmp/zooniverse/streetspectra/action-{{ds}}.json",
-    variable_name  = "action_ss_read_tstamp",
+    variable_name  = "streetspectra_read_tstamp",
     n_entries      = 10,                # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
     project        = "street-spectra", 
     obs_type       = "observation",
@@ -185,8 +195,17 @@ else:
         dag = street_spectra_zoo,
     )
 
+end_task = DummyOperator(
+        task_id         = "end_task",
+        trigger_rule    = "none_failed",
+        dag = street_spectra_zoo,
+    )
+
 # Task dependencies
-manage_subject_sets >> email_new_subject_set >> check_enough_observations >> download_from_action >> upload_new_subject_set
+manage_subject_sets >> email_new_subject_set >> check_enough_observations >> [download_from_action,  email_no_images]
+download_from_action >> upload_new_subject_set 
+[email_no_images, upload_new_subject_set] >> end_task
+
 #manage_subject_sets >> check_enough_observations >> download_from_action >> upload_new_subject_set
 
 

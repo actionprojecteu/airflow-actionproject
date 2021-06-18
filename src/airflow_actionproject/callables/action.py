@@ -30,9 +30,9 @@ from airflow_actionproject.hooks.action import ActionDatabaseHook
 # ----------------
 
 
-def check_number_of_entries(conn_id, start_date, n_entries, project, obs_type='observation'):
-	'''To use with ShortCircuitOperator'''
-	available = False
+def check_number_of_entries(conn_id, start_date, n_entries, project, true_task_id, false_task_id, obs_type='observation'):
+	'''To use with BranchPythonOperator'''
+	next_task = false_task_id
 	with ActionDatabaseHook(conn_id) as hook:
 		observations = list(
 			hook.download( 
@@ -44,5 +44,5 @@ def check_number_of_entries(conn_id, start_date, n_entries, project, obs_type='o
 			)
 		)
 	if len(observations) >= (n_entries+1):
-		available = True
-	return available
+		next_task = true_task_id
+	return next_task
