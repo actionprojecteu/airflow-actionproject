@@ -74,8 +74,8 @@ default_args = {
 # 2. Transform into internal format for ACTION PROJECT Database
 # 3. Load into ACTION PROJECT Observations Database
 
-street_spectra_dag = DAG(
-    'street_spectra_ec5',
+streetspectra_dag = DAG(
+    'streetspectra_ec5',
     default_args      = default_args,
     description       = 'StreetSpectra Observations ETL',
     schedule_interval = '@monthly',
@@ -93,21 +93,21 @@ export_ec5_observations = EC5ExportEntriesOperator(
     start_date   = "{{ds}}",
     end_date     = "{{next_ds}}",
     output_path  = "/tmp/ec5/street-spectra/{{ds}}.json",
-    dag          = street_spectra_dag,
+    dag          = streetspectra_dag,
 )
 
 transform_ec5_observations = EC5TransformOperator(
     task_id      = "transform_ec5_observations",
     input_path   = "/tmp/ec5/street-spectra/{{ds}}.json",
     output_path  = "/tmp/ec5/street-spectra/transformed-{{ds}}.json",
-    dag          = street_spectra_dag,
+    dag          = streetspectra_dag,
 )
 
 load_ec5_observations = ActionUploadOperator(
     task_id    = "load_ec5_observations",
     conn_id    = "streetspectra-action-database",
     input_path = "/tmp/ec5/street-spectra/transformed-{{ds}}.json",
-    dag        = street_spectra_dag,
+    dag        = streetspectra_dag,
 )
 
 export_ec5_observations >> transform_ec5_observations >> load_ec5_observations
