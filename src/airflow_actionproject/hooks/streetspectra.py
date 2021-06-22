@@ -46,7 +46,9 @@ class ZooniverseHook(ZooniverseBaseHook):
 		for metadata in subjects_metadata:
 			subject = Subject()
 			subject.metadata['id']         = metadata['id']
-			subject.metadata['id_type']    = metadata['id_type']
+			subject.metadata['project']    = metadata['project']
+			subject.metadata['obs_type']   = metadata['obs_type']
+			subject.metadata['source']     = metadata['source']
 			subject.metadata['url']        = metadata['url']
 			subject.metadata['created_at'] = metadata['created_at']
 			subject.metadata['observer']   = metadata['observer']
