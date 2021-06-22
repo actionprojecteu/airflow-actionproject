@@ -12,6 +12,7 @@
 
 import os
 import json
+import datetime
 
 # ---------------
 # Airflow imports
@@ -206,6 +207,13 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
 
 
 	def execute(self, context):
+		def remap_date(item):
+			# Patches MongoDB dates to appear like in ACTION format with milliseconds and Z ending
+			tstamp = datetime.datetime.strptime(item["created_at"], "%Y-%m-%d %H:%M:%S")
+			item["created_at"] = tstamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+			tstamp = datetime.datetime.strptime(item["uploaded_at"], "%Y-%m-%d %H:%M:%S")
+			item["uploaded_at"] = tstamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+			return item
 		start_date = Variable.get(self._key)
 		with ActionDatabaseHook(self._conn_id) as hook:
 			self.log.info(f"Fetching {self._n_entries} entries from date {start_date}")
@@ -218,10 +226,11 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
 					obs_type   = self._obs_type,
 				)
 			)
+		observations = list(map(remap_date, observations))	# The map call is to patch dates
 		N = len(observations)
-		excess = N - self._n_entries
+		excess = self._n_entries - N 
 		if excess > 0:
-			self.log.info(f"Got {N} entries, discarding last {excess} entries")
+			self.log.info(f"Got only {N} entries, discarding last {excess} entries")
 			observations = observations[:-excess]
 		self.log.info(f"Fetched {len(observations)} entries")
 		# Removes the last item and updates the timestamp marker
@@ -231,6 +240,6 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
 		output_dir = os.path.dirname(self._output_path)
 		os.makedirs(output_dir, exist_ok=True)
 		with open(self._output_path, "w") as fd:
-			json.dump(observations, indent="",fp=fd)
+			json.dump(observations, indent=2,fp=fd)
 			self.log.info(f"Written entries to {self._output_path}")
 

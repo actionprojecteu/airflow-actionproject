@@ -110,5 +110,11 @@ load_ec5_observations = ActionUploadOperator(
     dag        = streetspectra_dag,
 )
 
-export_ec5_observations >> transform_ec5_observations >> load_ec5_observations
+clean_up_ec5_files = BashOperator(
+    task_id      = "clean_up_ec5_files",
+    bash_command = "rm /tmp/ec5/street-spectra/{{ds}}.json ; rm /tmp/ec5/street-spectra/transformed-{{ds}}.json",
+    dag        = streetspectra_dag,
+)
+
+export_ec5_observations >> transform_ec5_observations >> load_ec5_observations >> clean_up_ec5_files
 

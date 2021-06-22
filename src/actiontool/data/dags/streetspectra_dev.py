@@ -110,7 +110,13 @@ load_ec5_observations = ActionUploadOperator(
     dag        = streetspectra_dag,
 )
 
-export_ec5_observations >> transform_ec5_observations >> load_ec5_observations
+clean_up_ec5_files = BashOperator(
+    task_id      = "clean_up_ec5_files",
+    bash_command = "rm /tmp/ec5/street-spectra/{{ds}}.json ; rm /tmp/ec5/street-spectra/transformed-{{ds}}.json",
+    dag        = streetspectra_dag,
+)
+
+export_ec5_observations >> transform_ec5_observations >> load_ec5_observations >> clean_up_ec5_files
 
 # ===========================
 # Zooniverse Feeding Workflow
@@ -188,20 +194,22 @@ upload_new_subject_set = ZooniverseImportOperator(
     task_id         = "upload_new_subject_set",
     input_path      = "/tmp/zooniverse/streetspectra/action-{{ds}}.json", 
     display_name    = "Subject Set {{ds}}",
-    dag = streetspectra_zoo_dag,
+    dag             = streetspectra_zoo_dag,
 )
 
 
-end_task = DummyOperator(
-    task_id         = "end_task",
-    trigger_rule    = "none_failed",    # For execution of just one preceeding branch only
-    dag = streetspectra_zoo_dag,
+clean_up_action_obs_file = BashOperator(
+    task_id      = "clean_up_action_obs_file",
+    trigger_rule = "none_failed",    # For execution of just one preceeding branch only
+    bash_command = "rm /tmp/zooniverse/streetspectra/action-{{ds}}.json",
+    dag          = streetspectra_zoo_dag,
 )
+
 
 # Task dependencies
 manage_subject_sets >> email_new_subject_set >> check_enough_observations >> [download_from_action,  email_no_images]
 download_from_action >> upload_new_subject_set 
-[email_no_images, upload_new_subject_set] >> end_task
+[email_no_images, upload_new_subject_set] >> clean_up_action_obs_file
 
 
 # ===================================
