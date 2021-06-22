@@ -140,8 +140,9 @@ class ZooniverseImportOperator(BaseOperator):
 	template_fields = ("_input_path", "_display_name")
 
 	@apply_defaults
-	def __init__(self, input_path, display_name, **kwargs):
+	def __init__(self, conn_id, input_path, display_name, **kwargs):
 		super().__init__(**kwargs)
+		self._conn_id      = conn_id
 		self._input_path   = input_path
 		self._display_name = display_name
 

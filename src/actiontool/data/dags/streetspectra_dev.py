@@ -192,6 +192,7 @@ download_from_action = ActionDownloadFromVariableDateOperator(
 
 upload_new_subject_set = ZooniverseImportOperator(
     task_id         = "upload_new_subject_set",
+    conn_id         = "streetspectra-zooniverse-test",
     input_path      = "/tmp/zooniverse/streetspectra/action-{{ds}}.json", 
     display_name    = "Subject Set {{ds}}",
     dag             = streetspectra_zoo_dag,
