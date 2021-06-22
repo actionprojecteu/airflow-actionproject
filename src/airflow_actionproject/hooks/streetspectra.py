@@ -41,8 +41,7 @@ class ZooniverseHook(ZooniverseBaseHook):
 		super().__init__(conn_id)
 
 
-	def _create_subjects_from_epicollect5(self, subjects_metadata):
-		project = self._project
+	def _create_subjects_from_epicollect5(self, project, subjects_metadata):
 		subjects = list()
 		for metadata in subjects_metadata:
 			subject = Subject()
