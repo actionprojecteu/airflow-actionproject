@@ -78,7 +78,7 @@ class ZooniverseHook(ZooniverseBaseHook):
 		subject_set.save()
 		source = subjects_metadata[0]['source']
 		if source == self.EPICOLLECT5_SOURCE:
-			log.info(f"Creating {len(subjects_metadata)} subjects to Subject Set {display_name}")
+			self.log.info(f"Creating {len(subjects_metadata)} subjects to Subject Set {display_name}")
 			subjects = self._create_subjects_from_epicollect5(project, subjects_metadata)
 		else:
 			raise NotImplementedError()
