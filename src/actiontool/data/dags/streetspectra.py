@@ -123,7 +123,7 @@ export_ec5_observations >> transform_ec5_observations >> load_ec5_observations >
 # ===========================
 
 streetspectra_zoo_dag = DAG(
-    'streetspectra_zoo_dag_import',
+    'streetspectra_zoo_import_dag',
     default_args      = default_args,
     description       = 'Zooniverse image feeding workflow',
     schedule_interval = '@daily',
