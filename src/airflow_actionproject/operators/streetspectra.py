@@ -194,7 +194,7 @@ class ZooniverseTransformOperator(BaseOperator):
 	# --------------
 	def _remap(self, item):
 		# Fixes timestamps format
-		dt = datetime.datetime.strptime(item['created_at'],'%Y-%m-%dT%H:%M:%S UTC').replace(microsecond=0)
+		dt = datetime.datetime.strptime(item['created_at'],'%Y-%m-%d %H:%M:%S UTC').replace(microsecond=0)
 		item['created_at'] = dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 		# Delete items not needed
 		# Add extra items
