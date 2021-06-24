@@ -122,7 +122,7 @@ export_ec5_observations >> transform_ec5_observations >> load_ec5_observations >
 # Zooniverse Feeding Workflow
 # ===========================
 
-streetspectra_zoo_dag = DAG(
+streetspectra_zoo_import_dag = DAG(
     'streetspectra_zoo_import_dag',
     default_args      = default_args,
     description       = 'Zooniverse image feeding workflow',
@@ -138,7 +138,7 @@ manage_subject_sets = ShortCircuitOperator(
         "conn_id"  : "streetspectra-zooniverse-test",
         "threshold": 75,    # 75% workflow completion status
     },
-    dag           = streetspectra_zoo_dag
+    dag           = streetspectra_zoo_import_dag
 )
 
 
@@ -155,7 +155,7 @@ check_enough_observations = BranchPythonOperator(
         "false_task_id" : "email_no_images",
         "obs_type"      : 'observation',
     },
-    dag           = streetspectra_zoo_dag
+    dag           = streetspectra_zoo_import_dag
 )
 
 
@@ -164,7 +164,7 @@ email_no_images = EmailOperator(
     to           = ("astrorafael@gmail.com",),
     subject      = "[StreetSpectra] Airflow warn: No ACTION images left",
     html_content = "No images left in ACTION database to create an new Zooniverse Subject Set.",
-    dag          = streetspectra_zoo_dag,
+    dag          = streetspectra_zoo_import_dag,
 )
 
 
@@ -176,7 +176,7 @@ download_from_action = ActionDownloadFromVariableDateOperator(
     n_entries      = 10,                # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
     project        = "street-spectra", 
     obs_type       = "observation",
-    dag            = streetspectra_zoo_dag,
+    dag            = streetspectra_zoo_import_dag,
 )
 
 upload_new_subject_set = ZooniverseImportOperator(
@@ -184,7 +184,7 @@ upload_new_subject_set = ZooniverseImportOperator(
     conn_id         = "streetspectra-zooniverse-test",
     input_path      = "/tmp/zooniverse/streetspectra/action-{{ds}}.json", 
     display_name    = "Subject Set {{ds}}",
-    dag             = streetspectra_zoo_dag,
+    dag             = streetspectra_zoo_import_dag,
 )
 
 # This needs to be configured:
@@ -196,14 +196,14 @@ email_new_subject_set = EmailOperator(
     to           = ("astrorafael@gmail.com",),
     subject      = "[StreetSpectra] Airflow info: new Zooniverse Subject Set",
     html_content = "New Zooniverse Subject Set {{ds}} created.",
-    dag          = streetspectra_zoo_dag,
+    dag          = streetspectra_zoo_import_dag,
 )
 
 clean_up_action_obs_file = BashOperator(
     task_id      = "clean_up_action_obs_file",
     trigger_rule = "none_failed",    # For execution of just one preceeding branch only
     bash_command = "rm /tmp/zooniverse/streetspectra/action-{{ds}}.json",
-    dag          = streetspectra_zoo_dag,
+    dag          = streetspectra_zoo_import_dag,
 )
 
 
