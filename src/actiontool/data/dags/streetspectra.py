@@ -46,8 +46,8 @@ from airflow_actionproject.callables.action        import check_number_of_entrie
 default_args = {
     'owner'           : 'airflow',
     'depends_on_past' : False,
-    'email'           : ['rafael08@ucm.es'],
-    'email_on_failure': False,
+    'email'           : ("astrorafael@gmail.com",), # CAMBIAR AL VERDADERO EN PRODUCCION
+    'email_on_failure': False,                      # CAMBIAR A True EN PRODUCCION
     'email_on_retry'  : False,
     'retries'         : 1,
     'retry_delay'     : timedelta(minutes=5),
@@ -74,10 +74,10 @@ default_args = {
 # 2. Transform into internal format for ACTION PROJECT Database
 # 3. Load into ACTION PROJECT Observations Database
 
-streetspectra_dag = DAG(
-    'streetspectra_ec5',
+streetspectra_collect_dag = DAG(
+    'streetspectra_collect_dag',
     default_args      = default_args,
-    description       = 'StreetSpectra Observations ETL',
+    description       = 'StreetSpectra: collect observations',
     schedule_interval = '@monthly',
     start_date        = datetime(year=2019, month=1, day=1),
     tags              = ['StreetSpectra', 'ACTION PROJECT'],
@@ -93,27 +93,27 @@ export_ec5_observations = EC5ExportEntriesOperator(
     start_date   = "{{ds}}",
     end_date     = "{{next_ds}}",
     output_path  = "/tmp/ec5/street-spectra/{{ds}}.json",
-    dag          = streetspectra_dag,
+    dag          = streetspectra_collect_dag,
 )
 
 transform_ec5_observations = EC5TransformOperator(
     task_id      = "transform_ec5_observations",
     input_path   = "/tmp/ec5/street-spectra/{{ds}}.json",
     output_path  = "/tmp/ec5/street-spectra/transformed-{{ds}}.json",
-    dag          = streetspectra_dag,
+    dag          = streetspectra_collect_dag,
 )
 
 load_ec5_observations = ActionUploadOperator(
     task_id    = "load_ec5_observations",
     conn_id    = "streetspectra-action-database",
     input_path = "/tmp/ec5/street-spectra/transformed-{{ds}}.json",
-    dag        = streetspectra_dag,
+    dag        = streetspectra_collect_dag,
 )
 
 clean_up_ec5_files = BashOperator(
     task_id      = "clean_up_ec5_files",
     bash_command = "rm /tmp/ec5/street-spectra/{{ds}}.json ; rm /tmp/ec5/street-spectra/transformed-{{ds}}.json",
-    dag        = streetspectra_dag,
+    dag        = streetspectra_collect_dag,
 )
 
 export_ec5_observations >> transform_ec5_observations >> load_ec5_observations >> clean_up_ec5_files
@@ -125,7 +125,7 @@ export_ec5_observations >> transform_ec5_observations >> load_ec5_observations >
 streetspectra_zoo_import_dag = DAG(
     'streetspectra_zoo_import_dag',
     default_args      = default_args,
-    description       = 'Zooniverse image feeding workflow',
+    description       = 'StreetSpectra: Zooniverse image feeding workflow',
     schedule_interval = '@daily',
     start_date        = days_ago(2),
     tags              = ['StreetSpectra', 'ACTION PROJECT'],
