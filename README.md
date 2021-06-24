@@ -57,42 +57,61 @@ airflow connections add \
 --conn-type https \
 --conn-host five.epicollect.net \
 --conn-port 443 \
---conn-schema "<your project slug>" \
---conn-extra '{"page_size": 100}' \
+--conn-schema "action-street-spectra" \
+--conn-extra '{"page_size": 10}' \
 --conn-description "Connection to Epicollect V mobile gathering platform" \
-epicollect5-<your project>
+streetspectra-epicollect5
 ```
+
 * The `schema` field contains the specific project slug (URL fragment) for the given Epicollect 5 URL.
-* The `extra` field contains the HTTP page size fro downloads.
+* The `extra` field contains the HTTP page size for downloads.
 
 ### Connection to Zooniverse
+
+Also create another  connection with another Zooniverse account for testing purposes.
 
 ```bash
 airflow connections add \
 --conn-type https \
 --conn-host www.zooniverse.org \
 --conn-port 443 \
---conn-login "<zooniverse login>" \
---conn-password "<zooniverse password>" \
---conn-schema "<your project slug>" \
+--conn-login "<your zooniverse login>" \
+--conn-password "<your zooniverse password>" \
+--conn-schema "street-spectra-test-2" \
+--conn-description "Connection to Zooniverse citizen science web portal (test)" \
+streetspectra-zooniverse-test
+```
+
+The real, production enviornment connection.
+
+```bash
+airflow connections add \
+--conn-type https \
+--conn-host www.zooniverse.org \
+--conn-port 443 \
+--conn-login "<your zooniverse login>" \
+--conn-password "<your zooniverse password>" \
+--conn-schema "street-spectra-test-2" \
 --conn-description "Connection to Zooniverse citizen science web portal" \
-zooniverse-<your project>
+streetspectra-zooniverse
 ```
 
 * The `schema` field contains the specific project slug (URL fragment) for the given Zooniverse project (not counting the login slug).
 
 ### Connection to ACTION Database
 
+There is no testing environment for the ACTION database. :-(
+
 ```bash
 airflow connections add \
 --conn-type https \
 --conn-host api.actionproject.eu \
 --conn-port 443 \
---conn-password "<API key>" \
+--conn-password "<ACTION DBase API key>" \
 --conn-schema "observations" \
 --conn-extra '{"page_size": 100, "tps": 2}' \
 --conn-description "Connection to ACTION observations database" \
-action-database-<your project>
+streetspectra-action-database
 ```
 
 * The `password` field contains the ACTION API Key.
@@ -102,15 +121,30 @@ action-database-<your project>
 
 ### Connection to Zenodo
 
+For testing purposes, also create a connection to Zenodo Sandbox
+
 ```bash
 airflow connections add \
 --conn-type https \
---conn-host zenodo.org \
+--conn-host sandbox.zenodo.org \
 --conn-port 443 \
---conn-password "<API key>" \
+--conn-password "<Zenodo sandbox API key>" \
 --conn-extra '{"page_size": 100, "tps": 2}' \
---conn-description "Connection to Zenodo" \
-zenodo
+--conn-description "Connection to Zenodo sandbox environment" \
+streetspectra-zenodo-sandbox
+```
+
+The real, production environment connection.
+
+```bash
+airflow connections add \
+--conn-type https \
+--conn-host sandbox.zenodo.org \
+--conn-port 443 \
+--conn-password "<Zenodo API key>" \
+--conn-extra '{"page_size": 100, "tps": 2}' \
+--conn-description "Connection to Zenodo environment" \
+streetspectra-zenodo
 ```
 
 * The `password` field contains the Zenodo API Key.
@@ -122,10 +156,11 @@ zenodo
 ```bash
 airflow connections add \
 --conn-type sqlite \
---conn-host  "/home/rafa/airflow/extra_dbase/street_spectra.db" \
---conn-description "Connection to Temporary SQLite Database for StreetSpectra" \
+--conn-host  "/home/rafa/airflow/extra/streetspectra.db" \
+--conn-description "Connection to StreetSpectra temporary SQLite database" \
 streetspectra-temp-db
 ```
+
 ## Airflow Variables
 
 This variable keeps track of the next observation of the database to be read
@@ -147,59 +182,7 @@ airflow tasks list <dag id>
 
 3. Setup connections
 
-```bash
-airflow connections add \
---conn-type https \
---conn-host five.epicollect.net \
---conn-port 443 \
---conn-schema "action-street-spectra" \
---conn-extra '{"page_size": 10}' \
---conn-description "Connection to Epicollect V mobile gathering platform" \
-streetspectra-epicollect5
-```
-
-```bash
-airflow connections add \
---conn-type https \
---conn-host www.zooniverse.org \
---conn-port 443 \
---conn-login "<my login>" \
---conn-password "<my password>" \
---conn-schema "street-spectra-test-2" \
---conn-description "Connection to Zooniverse citizen science web portal" \
-streetspectra-zooniverse-test
-```
-
-```bash
-airflow connections add \
---conn-type https \
---conn-host api.actionproject.eu \
---conn-port 443 \
---conn-password "<API key>" \
---conn-schema "observations" \
---conn-extra '{"page_size": 100, "tps": 2}' \
---conn-description "Connection to ACTION observations database" \
-streetspectra-action-database
-```
-
-```bash
-airflow connections add \
---conn-type https \
---conn-host sandbox.zenodo.org \
---conn-port 443 \
---conn-password "<API key>" \
---conn-extra '{"page_size": 100, "tps": 2}' \
---conn-description "Connection to Zenodo sandbox environment" \
-streetspectra-zenodo-sandbox
-```
-
-```bash
-airflow connections add \
---conn-type sqlite \
---conn-host  "/home/rafa/airflow/extra_dbase/streetspectra.db" \
---conn-description "Connection to StreetSpectra temporary SQLite database" \
-streetspectra-temp-db
-```
+As per secion above. Use test connections whenever possible
 
 4. Test each task individually and sequentially
 ```bash
