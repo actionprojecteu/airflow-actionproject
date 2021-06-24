@@ -33,6 +33,7 @@ from airflow_actionproject.hooks.zooniverse import ZooniverseHook as ZooniverseB
 # Module constants
 # ----------------
 
+# This ZooniverseHook is specific to StreetSpectra because of the added metadata in subjects
 class ZooniverseHook(ZooniverseBaseHook):
 
 	EPICOLLECT5_SOURCE = "Epicollect5"

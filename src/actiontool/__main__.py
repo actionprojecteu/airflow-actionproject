@@ -113,9 +113,9 @@ def createParser():
 
 	subparser = parser_db.add_subparsers(dest='subcommand')
 
-	parser_db_install = subparser.add_parser('install', help='Install Auxiliar SQLite database')
+	parser_db_install = subparser.add_parser('install', help='Install StreetSpectra auxiliar SQLite database')
 	parser_db_install.add_argument('name',  type=str, help='Database file to install [without .sql]')
-	parser_db_install.add_argument('directory',  type=str, help='Airflow Auxiliar Directory where to create the database')
+	parser_db_install.add_argument('directory',  type=str, help='Airflow auxiliar directory where to create the database')
 
 	return parser
 

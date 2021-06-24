@@ -131,7 +131,7 @@ class EC5TransformOperator(BaseOperator):
 
 
 # --------------------------------------------------------------
-# This class is sepcifict to StreetSpectra because 
+# This class is specific to StreetSpectra because 
 # this particular ZooniverseHook is specific to StreetSpectra
 # --------------------------------------------------------------
 
@@ -207,6 +207,4 @@ class ZooniverseTransformOperator(BaseOperator):
 	def _zoo_remapper(self, entries):
 		'''Map Zooniverse to an internal, more convenient representation'''
 		# Use generators instead of lists
-		g1 = ({self.NAME_MAP[name]: val for name, val in entry.items()} for entry in entries)
-		g2 =  map(self._remap, g1)
-		return g2
+		return map(self._remap, entries)

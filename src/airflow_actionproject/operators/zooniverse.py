@@ -169,7 +169,7 @@ class ZooniverseDeltaOperator(BaseOperator):
 		self.log.info(f"Logging classifications differences {differences}")
 		hook.run(
 			'''
-			INSERT INTO zooniverse_window_t (executed_at, before, after) VALUES (:executed_at, :before, :after)
+			INSERT INTO zooniverse_export_window_t (executed_at, before, after) VALUES (:executed_at, :before, :after)
 			''', parameters=differences)
 
 
@@ -178,7 +178,7 @@ class ZooniverseDeltaOperator(BaseOperator):
 		before, after = hook.get_first(
 			'''
 			SELECT before, after 
-			FROM zooniverse_window_t
+			FROM zooniverse_export_window_t
 			ORDER BY executed_at DESC
 			LIMIT 1
 			'''

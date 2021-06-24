@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS zooniverse_export_t
 -- This history log helps identify when and provides info to fix it.
 ---------------------------------------------------------------------- 
 
-CREATE TABLE IF NOT EXISTS zooniverse_window_t
+CREATE TABLE IF NOT EXISTS zooniverse_export_window_t
 (
     executed_at         TEXT,   -- execution timestamp
     before              TEXT,   -- lastest classification timestamp before insertion

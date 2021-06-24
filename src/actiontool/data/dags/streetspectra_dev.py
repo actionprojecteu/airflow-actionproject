@@ -220,9 +220,11 @@ download_from_action >> upload_new_subject_set >> email_new_subject_set
 
 # Aqui hay que tener en cuenta que el exportado de Zooniverse es completo
 # y que la BD de ACTION NO detecta duplicados
-# Asi que hay que usar variables de la ventana de clasificaciones subida
+# Asi que hay que usar ventanas de clasificaciones subida
 # Este "enventanado" debe ser lo primero que se haga tras la exportacion para evitar
-# que los procesados posteriores sean largos
+# que los procesados posteriores sean largos.
+# Este enventanado no se hace por variables de Airflow 
+# sino en una tabla de la BD Sqlite interna
 
 
 streetspectra_zoo_export_dag = DAG(
@@ -237,7 +239,7 @@ streetspectra_zoo_export_dag = DAG(
 export_classifications = ZooniverseExportOperator(
     task_id     = "export_classifications",
     conn_id     = "streetspectra-zooniverse-test",
-    output_path = "/tmp/zooniverse/whole-{{ds}}.json",
+    output_path = "/tmp/zooniverse/complete-{{ds}}.json",
     generate    = True, 
     wait        = True, 
     timeout     = 600,
@@ -247,7 +249,7 @@ export_classifications = ZooniverseExportOperator(
 only_new_classifications = ZooniverseDeltaOperator(
     task_id       = "only_new_classifications",
     conn_id       = "streetspectra-temp-db",
-    input_path    = "/tmp/zooniverse/whole-{{ds}}.json",
+    input_path    = "/tmp/zooniverse/complete-{{ds}}.json",
     output_path   = "/tmp/zooniverse/subset-{{ds}}.json",
     dag           = streetspectra_zoo_export_dag,
 )
@@ -255,14 +257,24 @@ only_new_classifications = ZooniverseDeltaOperator(
 transform_classfications = ZooniverseTransformOperator(
     task_id      = "transform_classfications",
     input_path   = "/tmp/zooniverse/subset-{{ds}}.json",
-    output_path  = "/tmp/ec5/street-spectra/transformed-subset-{{ds}}.json",
+    output_path  = "/tmp/zooniverse/transformed-subset-{{ds}}.json",
     dag          = streetspectra_zoo_export_dag,
 )
 
+load_zoo_classifications = ActionUploadOperator(
+    task_id    = "load_zoo_classifications",
+    conn_id    = "streetspectra-action-database",
+    input_path = "/tmp/zooniverse/transformed-subset-{{ds}}.json",
+    dag        = streetspectra_zoo_export_dag,
+)
 
-load_classfications = DummyOperator(task_id="load_classfications", dag=streetspectra_zoo_export_dag)
+clean_up_classif_files = BashOperator(
+    task_id      = "clean_up_classif_files",
+    bash_command = "rm /tmp/zooniverse/complete-{{ds}}.json; /tmp/zooniverse/subset-{{ds}}.json; /tmp/zooniverse/transformed-subset-{{ds}}.json",
+    dag          = streetspectra_zoo_export_dag,
+)
 
-export_classifications >> only_new_classifications >> transform_classfications >> load_classfications
+export_classifications >> only_new_classifications >> transform_classfications >> load_zoo_classfications >> clean_up_classif_files
 
 ################### TESTING ZENODO
 # THERE ARE MISSING TASKS LIKE:
