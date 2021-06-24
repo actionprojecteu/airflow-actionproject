@@ -39,6 +39,7 @@ log = logging.getLogger("actiontool")
 
 
 def open_database(dbase_path):
+	log.info(f"Open/Create database file {dbase_path}")
 	os.makedirs(os.path.dirname(dbase_path), exist_ok=True)
 	if not os.path.exists(dbase_path):
 		with open(dbase_path, 'w') as f:

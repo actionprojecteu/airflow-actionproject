@@ -8,26 +8,6 @@ Test cases
 ==========
 0) Epicollect V tienes observaciones desde el mes 2019-09-01
 
-1) Crear un nuevo proyecto de prueba en Zooniverse street-spectra-test-2
-  - con su nuevo workflow y tarea con 2 tools y subtareas
-  - atencion al orden de las clasificaciones en la subtarea
-  ***HECHO***
-2) Probar que pasa con manage_workflows cuando no hay subject sets
- ***RESPUESTA***
- Como detecte auqw no hay subjects, sale con True y procede a continuar con el workflow de recarga
-3) probar a exportar sin subject sets
-***RESPUESTA***
-Exporta sin errores a un fichero con un JSON vacio []
-4) preparar un subject set de 10 imagenes y cargarlo
-5) Exportar clasificaciones sin haber clasificado nada
-- A ver si exporta algo para las 10 imagienes
-- anotar lo que observo
-6) Clasificar 3 imagenes
-7) Exportar clasificaciones y examinar el resultado
-- A ver si exporta algo para las 3 o 10 imagenes.
-- anotar lo que observo
-8) Clasificar 5 imagenes más
-9) disparar el workflow de refill
 
 
 Mid-term

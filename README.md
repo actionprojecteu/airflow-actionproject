@@ -161,6 +161,10 @@ airflow connections add \
 streetspectra-temp-db
 ```
 
+# Creates the temporary database with the actiontool
+```bash
+actiontool database install streetspectra /home/rafa/airflow/extra
+```
 ## Airflow Variables
 
 This variable keeps track of the next observation of the database to be read
