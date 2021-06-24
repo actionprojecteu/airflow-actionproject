@@ -116,6 +116,10 @@ clean_up_ec5_files = BashOperator(
     dag        = streetspectra_collect_dag,
 )
 
+# -----------------
+# Task dependencies
+# -----------------
+
 export_ec5_observations >> transform_ec5_observations >> load_ec5_observations >> clean_up_ec5_files
 
 # ===========================
@@ -131,6 +135,10 @@ streetspectra_zoo_import_dag = DAG(
     tags              = ['StreetSpectra', 'ACTION PROJECT'],
 )
 
+# -----
+# Tasks
+# -----
+
 manage_subject_sets = ShortCircuitOperator(
     task_id         = "manage_subject_sets",
     python_callable = zooniverse_manage_subject_sets,
@@ -140,8 +148,6 @@ manage_subject_sets = ShortCircuitOperator(
     },
     dag           = streetspectra_zoo_import_dag
 )
-
-
 
 check_enough_observations = BranchPythonOperator(
     task_id         = "check_enough_observations",
@@ -158,7 +164,6 @@ check_enough_observations = BranchPythonOperator(
     dag           = streetspectra_zoo_import_dag
 )
 
-
 email_no_images = EmailOperator(
     task_id      = "email_no_images",
     to           = ("astrorafael@gmail.com",),
@@ -166,7 +171,6 @@ email_no_images = EmailOperator(
     html_content = "No images left in ACTION database to create an new Zooniverse Subject Set.",
     dag          = streetspectra_zoo_import_dag,
 )
-
 
 download_from_action = ActionDownloadFromVariableDateOperator(
     task_id        = "download_from_action",
@@ -206,8 +210,10 @@ clean_up_action_obs_file = BashOperator(
     dag          = streetspectra_zoo_import_dag,
 )
 
-
+# -----------------
 # Task dependencies
+# -----------------
+
 manage_subject_sets  >> check_enough_observations >> [download_from_action,  email_no_images]
 download_from_action >> upload_new_subject_set >> email_new_subject_set
 [email_new_subject_set, email_no_images] >> clean_up_action_obs_file
