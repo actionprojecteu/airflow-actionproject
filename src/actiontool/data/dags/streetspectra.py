@@ -141,17 +141,7 @@ manage_subject_sets = ShortCircuitOperator(
     dag           = streetspectra_zoo_dag
 )
 
-# This needs to be configured:
-# WARNING - section/key [smtp/smtp_user] not found in config
-# See https://stackoverflow.com/questions/51829200/how-to-set-up-airflow-send-email
 
-email_new_subject_set = EmailOperator(
-    task_id      = "email_new_subject_set",
-    to           = ("astrorafael@gmail.com",),
-    subject      = "[StreetSpectra] Airflow info: new Zooniverse Subject Set",
-    html_content = "About to create a new Zooniverse Subject Set {{ds}}.",
-    dag          = streetspectra_zoo_dag,
-)
 
 check_enough_observations = BranchPythonOperator(
     task_id         = "check_enough_observations",
@@ -189,7 +179,6 @@ download_from_action = ActionDownloadFromVariableDateOperator(
     dag            = streetspectra_zoo_dag,
 )
 
-
 upload_new_subject_set = ZooniverseImportOperator(
     task_id         = "upload_new_subject_set",
     conn_id         = "streetspectra-zooniverse-test",
@@ -198,6 +187,17 @@ upload_new_subject_set = ZooniverseImportOperator(
     dag             = streetspectra_zoo_dag,
 )
 
+# This needs to be configured:
+# WARNING - section/key [smtp/smtp_user] not found in config
+# See https://stackoverflow.com/questions/51829200/how-to-set-up-airflow-send-email
+
+email_new_subject_set = EmailOperator(
+    task_id      = "email_new_subject_set",
+    to           = ("astrorafael@gmail.com",),
+    subject      = "[StreetSpectra] Airflow info: new Zooniverse Subject Set",
+    html_content = "New Zooniverse Subject Set {{ds}} created.",
+    dag          = streetspectra_zoo_dag,
+)
 
 clean_up_action_obs_file = BashOperator(
     task_id      = "clean_up_action_obs_file",
@@ -208,8 +208,7 @@ clean_up_action_obs_file = BashOperator(
 
 
 # Task dependencies
-manage_subject_sets >> email_new_subject_set >> check_enough_observations >> [download_from_action,  email_no_images]
-download_from_action >> upload_new_subject_set 
-[email_no_images, upload_new_subject_set] >> clean_up_action_obs_file
-
+manage_subject_sets  >> check_enough_observations >> [download_from_action,  email_no_images]
+download_from_action >> upload_new_subject_set >> email_new_subject_set
+[email_new_subject_set, email_no_images] >> clean_up_action_obs_file
 
