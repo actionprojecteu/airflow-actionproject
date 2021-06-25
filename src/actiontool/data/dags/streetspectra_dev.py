@@ -279,7 +279,7 @@ load_zoo_classifications = ActionUploadOperator(
 
 clean_up_classif_files = BashOperator(
     task_id      = "clean_up_classif_files",
-    bash_command = "rm /tmp/zooniverse/complete-{{ds}}.json; /tmp/zooniverse/subset-{{ds}}.json; /tmp/zooniverse/transformed-subset-{{ds}}.json",
+    bash_command = "rm /tmp/zooniverse/complete-{{ds}}.json; rm /tmp/zooniverse/subset-{{ds}}.json; rm /tmp/zooniverse/transformed-subset-{{ds}}.json",
     dag          = streetspectra_zoo_export_dag,
 )
 
