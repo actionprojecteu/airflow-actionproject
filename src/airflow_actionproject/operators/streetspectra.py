@@ -20,6 +20,7 @@ import datetime
 
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
+from airflow.providers.sqlite.hooks.sqlite import SqliteHook
 
 
 #--------------
@@ -208,3 +209,78 @@ class ZooniverseTransformOperator(BaseOperator):
 		'''Map Zooniverse to an internal, more convenient representation'''
 		# Use generators instead of lists
 		return map(self._remap, entries)
+
+
+
+class StreetSpectraLoadInternalDBOperator(BaseOperator):
+	"""
+	Operator that transforms classifications exported from 
+	Zooniverse API to an ACTION  StreetSpectra JSON file.
+	
+	Parameters
+	—————
+	input_path : str
+	(Templated) Path to read the input JSON to transform to.
+	output_path : str
+	(Templated) Path to write the output transformed JSON.
+	"""
+	
+	template_fields = ("_input_path",)
+
+	SPECTRUM_TYPE = {
+		0: 'LED',	# Light Emitting Diode
+		1: 'HPS',	# High Pressure Sodium
+		2: 'LPS',	# Low Pressure Sodium
+		3: 'MH',	# Metal Halide
+		4: 'MV',	# Mercury Vapor
+	}
+
+	@apply_defaults
+	def __init__(self, input_path, conn_id, **kwargs):
+		super().__init__(**kwargs)
+		self._input_path  = input_path
+		self._conn_id     = conn_id
+
+
+	def _extract(self, classification)
+		new = dict()
+		# General info
+		new["id"]         = classification["classification_id"]
+		new["subject_id"] = classification["subject_ids"]
+		new["user_id"]    = classification["user_id"]
+		new["width"]      = classification["subject_dimensions"][0]["naturalWidth"]
+		new["height"]     = classification["subject_dimensions"][0]["naturalHeight"]
+		# Light source info
+		new["source_x"]   = classification["annotations"][0]["value"][0]["x"]
+		new["source_y"]   = classification["annotations"][0]["value"][0]["y"]
+		# Spectrum tool info
+		new["spectrum_x"] = classification["annotations"][0]["value"][1]["x"]
+		new["spectrum_y"] = classification["annotations"][0]["value"][1]["y"]
+		new["spectrum_width"]  = classification["annotations"][0]["value"][1]["width"]
+		new["spectrum_height"] = classification["annotations"][0]["value"][1]["height"]
+		new["spectrum_type"]   = classification["annotations"][0]["value"][1]["details"][0]["value"]
+		new["spectrum_type"] = self.SPECTRUM_TYPE[new["spectrum_type"]] # remap spectrum type codes to strings
+		# Metadata coming from Observing platform
+		new["image_id"]         = classification["subject_data"]["id"]
+		new["image_url"]        = classification["subject_data"]["url"]
+		new["image_long"]       = classification["subject_data"]["latitude"]
+		new["image_lat"]        = classification["subject_data"]["longitude"]
+		new["image_observer"]   = classification["subject_data"]["observer"]
+		new["image_comment"]    = classification["subject_data"]["comment"]
+		new["image_source"]     = classification["subject_data"]["source"]
+		new["image_created_at"] = classification["subject_data"]["created_at"]
+		return new
+
+
+
+	def execute(self, context):
+		with open(self._input_path) as fd:
+			classifications = json.load(fd)
+		classifications = list(map(self._extract, classifications))
+		self.log.info(f"{classifications}")
+		
+		#hook = SqliteHook(sqlite_conn_id=self._conn_id)
+
+		
+
+		

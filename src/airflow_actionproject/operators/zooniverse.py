@@ -187,7 +187,6 @@ class ZooniverseDeltaOperator(BaseOperator):
 			self.log.info("No new classifications to generate")
 			new_classifications = list()
 		else:
-
 			threshold = '2000-02-01T:00:00:00.00000Z' if before is None else before
 			new_classifications = hook.get_records(
 				'''
