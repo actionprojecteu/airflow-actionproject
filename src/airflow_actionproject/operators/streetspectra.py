@@ -242,33 +242,39 @@ class StreetSpectraLoadInternalDBOperator(BaseOperator):
 		self._conn_id     = conn_id
 
 
-	def _extract(self, classification)
+	def _extract(self, classification):
 		new = dict()
 		# General info
 		new["id"]         = classification["classification_id"]
 		new["subject_id"] = classification["subject_ids"]
 		new["user_id"]    = classification["user_id"]
-		new["width"]      = classification["subject_dimensions"][0]["naturalWidth"]
-		new["height"]     = classification["subject_dimensions"][0]["naturalHeight"]
-		# Light source info
-		new["source_x"]   = classification["annotations"][0]["value"][0]["x"]
-		new["source_y"]   = classification["annotations"][0]["value"][0]["y"]
-		# Spectrum tool info
-		new["spectrum_x"] = classification["annotations"][0]["value"][1]["x"]
-		new["spectrum_y"] = classification["annotations"][0]["value"][1]["y"]
-		new["spectrum_width"]  = classification["annotations"][0]["value"][1]["width"]
-		new["spectrum_height"] = classification["annotations"][0]["value"][1]["height"]
-		new["spectrum_type"]   = classification["annotations"][0]["value"][1]["details"][0]["value"]
-		new["spectrum_type"] = self.SPECTRUM_TYPE[new["spectrum_type"]] # remap spectrum type codes to strings
+		sd = classification["metadata"]["subject_dimensions"][0]
+		if sd:
+			new["width"]      = sd["naturalWidth"]
+			new["height"]     = sd["naturalHeight"]
+		value =  classification["annotations"][0]["value"]
+		if value:
+			# Light source info
+			new["source_x"]   = value[0]["x"]
+			new["source_y"]   = value[0]["y"]
+			# Spectrum tool info
+			new["spectrum_x"] = value[1]["x"]
+			new["spectrum_y"] = value[1]["y"]
+			new["spectrum_width"]  = value[1]["width"]
+			new["spectrum_height"] = value[1]["height"]
+			new["spectrum_type"]   = value[1]["details"][0]["value"]
+			new["spectrum_type"] = self.SPECTRUM_TYPE[new["spectrum_type"]] # remap spectrum type codes to strings
 		# Metadata coming from Observing platform
-		new["image_id"]         = classification["subject_data"]["id"]
-		new["image_url"]        = classification["subject_data"]["url"]
-		new["image_long"]       = classification["subject_data"]["latitude"]
-		new["image_lat"]        = classification["subject_data"]["longitude"]
-		new["image_observer"]   = classification["subject_data"]["observer"]
-		new["image_comment"]    = classification["subject_data"]["comment"]
-		new["image_source"]     = classification["subject_data"]["source"]
-		new["image_created_at"] = classification["subject_data"]["created_at"]
+		key = list(classification["subject_data"].keys())[0]
+		value = classification["subject_data"][key]
+		new["image_id"]         = value["id"]
+		new["image_url"]        = value["url"]
+		new["image_long"]       = value["latitude"]
+		new["image_lat"]        = value["longitude"]
+		new["image_observer"]   = value["observer"]
+		new["image_comment"]    = value["comment"]
+		new["image_source"]     = value["source"]
+		new["image_created_at"] = value["created_at"]
 		return new
 
 
@@ -277,7 +283,7 @@ class StreetSpectraLoadInternalDBOperator(BaseOperator):
 		with open(self._input_path) as fd:
 			classifications = json.load(fd)
 		classifications = list(map(self._extract, classifications))
-		self.log.info(f"{classifications}")
+		#self.log.info(f"{classifications}")
 		
 		#hook = SqliteHook(sqlite_conn_id=self._conn_id)
 
