@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS zooniverse_export_window_t
 CREATE TABLE IF NOT EXISTS zooniverse_classification_t
 (
     id                  INT,    -- unique Zooinverse classification identifier
-    subject_id          INT,    -- Zooinverse image id subbject of classification
+    subject_id          INT,    -- Zooinverse image id subject of classification
     user_id             INT,    -- Zooinverse user id in case of non anonymous classifications
     width               INT,    -- image width
     height              INT,    -- image height
