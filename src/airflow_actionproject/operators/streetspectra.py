@@ -285,8 +285,8 @@ class StreetSpectraLoadInternalDBOperator(BaseOperator):
 		value = classification["subject_data"][key]
 		new["image_id"]         = value["id"]
 		new["image_url"]        = value["url"]
-		new["image_long"]       = value["latitude"]
-		new["image_lat"]        = value["longitude"]
+		new["image_long"]       = value["longitude"]
+		new["image_lat"]        = value["latitude"]
 		new["image_observer"]   = value["observer"]
 		new["image_comment"]    = value["comment"]
 		new["image_source"]     = value["source"]
@@ -295,7 +295,8 @@ class StreetSpectraLoadInternalDBOperator(BaseOperator):
 
 	def _insert(self, classifications):
 		hook = SqliteHook(sqlite_conn_id=self._conn_id)
-		hook.run(
+		for classification in classifications:
+			hook.run(
 					'''
 					INSERT OR IGNORE INTO zooniverse_classification_t (
 						id                  ,
@@ -342,9 +343,7 @@ class StreetSpectraLoadInternalDBOperator(BaseOperator):
 					    :image_source        ,
 					    :image_created_at
 					)
-					''', parameters=classifications)
-		hook.close()
-
+					''', parameters=classification)
 
 
 	def execute(self, context):

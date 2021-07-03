@@ -284,7 +284,7 @@ load_zoo_classifications = ActionUploadOperator(
 
 internal_db_classifications = StreetSpectraLoadInternalDBOperator(
     task_id    = "internal_db_classifications",
-    conn_id    = "streetspectra-action-database",
+    conn_id    = "streetspectra-temp-db",
     input_path = "/tmp/zooniverse/transformed-subset-{{ds}}.json",
     dag        = streetspectra_zoo_export_dag,
 )
