@@ -265,6 +265,7 @@ class StreetSpectraLoadInternalDBOperator(BaseOperator):
 			new["spectrum_y"] = value[1]["y"]
 			new["spectrum_width"]  = value[1]["width"]
 			new["spectrum_height"] = value[1]["height"]
+			new["spectrum_angle"]  = value[1]["angle"]
 			new["spectrum_type"]   = value[1]["details"][0]["value"]
 			new["spectrum_type"] = self.SPECTRUM_TYPE[new["spectrum_type"]] # remap spectrum type codes to strings
 		else:
@@ -276,6 +277,7 @@ class StreetSpectraLoadInternalDBOperator(BaseOperator):
 			new["spectrum_y"] = None
 			new["spectrum_width"]  = None
 			new["spectrum_height"] = None
+			new["spectrum_angle"]  = None
 			new["spectrum_type"]   = None
 
 		# Metadata coming from the Observing Platform
