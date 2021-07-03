@@ -32,3 +32,31 @@ Otras ideas
   - en su lugar, añadir "same_as" : uuid de la ultima observacion con imagen
   - pero si añadir nueva marca de tiempo, coordenadas y nickname
 
+
+Datos interesantes de una clasificacion individual
+
+classifications[i]["classification_id"]
+classifications[i]["subject_ids"]
+classifications[i]["user_id"]
+classifications[i]["subject_dimensions"][0]["naturalWidth"]
+classifications[i]["subject_dimensions"][0]["naturalHeight"]
+# Light Source
+classifications[i]["annotations"][0]["value"][0]["x"]
+classifications[i]["annotations"][0]["value"][0]["y"]
+# Spectrum box
+classifications[i]["annotations"][0]["value"][1]["x"]
+classifications[i]["annotations"][0]["value"][1]["y"]
+classifications[i]["annotations"][0]["value"][1]["angle"]
+classifications[i]["annotations"][0]["value"][1]["width"]
+classifications[i]["annotations"][0]["value"][1]["height"]
+classifications[i]["annotations"][0]["value"][1]["details"][0]["value"]
+
+# Metadatos originales de epicollect
+classifications[i]["subject_data"]["id"]
+classifications[i]["subject_data"]["url"]
+classifications[i]["subject_data"]["latitude"]
+classifications[i]["subject_data"]["longitude"]
+classifications[i]["subject_data"]["observer"]
+classifications[i]["subject_data"]["source"]
+classifications[i]["subject_data"]["comment"]
+classifications[i]["subject_data"]["created_at"]

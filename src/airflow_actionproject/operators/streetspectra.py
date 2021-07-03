@@ -27,7 +27,7 @@ from airflow.providers.sqlite.hooks.sqlite import SqliteHook
 # local imports
 # -------------
 
-# This hook knows how to insert StreetSpectra metadata into subjects
+# This hook knows how to insert StreetSpectra metadata o subjects
 from airflow_actionproject.hooks.streetspectra import ZooniverseHook
 
 
@@ -82,7 +82,7 @@ class EC5TransformOperator(BaseOperator):
 		self._output_path = output_path
 
 
-	def execute(self, context):
+	def execute(self, con):
 		self.log.info(f"Transforming EC5 observations from JSON file {self._input_path}")
 		with open(self._input_path) as fd:
 			entries = json.load(fd)
@@ -124,7 +124,7 @@ class EC5TransformOperator(BaseOperator):
 
 
 	def _ec5_remapper(self, entries):
-		'''Map Epicollect V metadata to an internal, more convenient representation'''
+		'''Map Epicollect V metadata to an ernal, more convenient representation'''
 		# Use generators instead of lists
 		g1 = ({self.NAME_MAP[name]: val for name, val in entry.items()} for entry in entries)
 		g2 =  map(self._remap, g1)
@@ -148,7 +148,7 @@ class ZooniverseImportOperator(BaseOperator):
 		self._display_name = display_name
 
 
-	def execute(self, context):
+	def execute(self, con):
 		self.log.info(f"Uploading observations to Zooniverse from {self._input_path}")
 		with open(self._input_path) as fd:
 			subjects_metadata = json.load(fd)
@@ -178,7 +178,7 @@ class ZooniverseTransformOperator(BaseOperator):
 		self._output_path = output_path
 
 
-	def execute(self, context):
+	def execute(self, con):
 		self.log.info(f"Transforming Zooniverse classifications from JSON file {self._input_path}")
 		with open(self._input_path) as fd:
 			entries = json.load(fd)
@@ -206,7 +206,7 @@ class ZooniverseTransformOperator(BaseOperator):
 
 
 	def _zoo_remapper(self, entries):
-		'''Map Zooniverse to an internal, more convenient representation'''
+		'''Map Zooniverse to an ernal, more convenient representation'''
 		# Use generators instead of lists
 		return map(self._remap, entries)
 
@@ -252,6 +252,9 @@ class StreetSpectraLoadInternalDBOperator(BaseOperator):
 		if sd:
 			new["width"]      = sd["naturalWidth"]
 			new["height"]     = sd["naturalHeight"]
+		else:
+			new["width"]      = None
+			new["height"]     = None
 		value =  classification["annotations"][0]["value"]
 		if value:
 			# Light source info
@@ -264,7 +267,18 @@ class StreetSpectraLoadInternalDBOperator(BaseOperator):
 			new["spectrum_height"] = value[1]["height"]
 			new["spectrum_type"]   = value[1]["details"][0]["value"]
 			new["spectrum_type"] = self.SPECTRUM_TYPE[new["spectrum_type"]] # remap spectrum type codes to strings
-		# Metadata coming from Observing platform
+		else:
+			# Light source info
+			new["source_x"]   = None
+			new["source_y"]   = None
+			# Spectrum tool info
+			new["spectrum_x"] = None
+			new["spectrum_y"] = None
+			new["spectrum_width"]  = None
+			new["spectrum_height"] = None
+			new["spectrum_type"]   = None
+
+		# Metadata coming from the Observing Platform
 		key = list(classification["subject_data"].keys())[0]
 		value = classification["subject_data"][key]
 		new["image_id"]         = value["id"]
@@ -277,15 +291,66 @@ class StreetSpectraLoadInternalDBOperator(BaseOperator):
 		new["image_created_at"] = value["created_at"]
 		return new
 
+	def _insert(self, classifications):
+		hook = SqliteHook(sqlite_conn_id=self._conn_id)
+		hook.run(
+					'''
+					INSERT OR IGNORE INTO zooniverse_classification_t (
+						id                  ,
+					    subject_id          ,
+					    user_id             ,
+					    width               ,
+					    height              ,
+					    source_x            ,
+					    source_y            ,
+					    spectrum_x          ,
+					    spectrum_y          ,
+					    spectrum_width      ,
+					    spectrum_height     ,
+					    spectrum_angle      ,
+					    spectrum_type       ,
+					    image_id            ,
+					    image_url           ,
+					    image_long          ,
+					    image_lat           ,
+					    image_observer      ,
+					    image_comment       ,
+					    image_source        ,
+					    image_created_at
+					) VALUES (
+						:id                  ,
+					    :subject_id          ,
+					    :user_id             ,
+					    :width               ,
+					    :height              ,
+					    :source_x            ,
+					    :source_y            ,
+					    :spectrum_x          ,
+					    :spectrum_y          ,
+					    :spectrum_width      ,
+					    :spectrum_height     ,
+					    :spectrum_angle      ,
+					    :spectrum_type       ,
+					    :image_id            ,
+					    :image_url           ,
+					    :image_long          ,
+					    :image_lat           ,
+					    :image_observer      ,
+					    :image_comment       ,
+					    :image_source        ,
+					    :image_created_at
+					)
+					''', parameters=classifications)
+		hook.close()
+
 
 
 	def execute(self, context):
 		with open(self._input_path) as fd:
 			classifications = json.load(fd)
 		classifications = list(map(self._extract, classifications))
-		#self.log.info(f"{classifications}")
+		self._insert(classifications)
 		
-		#hook = SqliteHook(sqlite_conn_id=self._conn_id)
 
 		
 

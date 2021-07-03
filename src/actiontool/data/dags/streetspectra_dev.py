@@ -38,6 +38,11 @@ from airflow_actionproject.operators.streetspectra import EC5TransformOperator, 
 from airflow_actionproject.callables.zooniverse    import zooniverse_manage_subject_sets
 from airflow_actionproject.callables.action        import check_number_of_entries
 
+
+# Under testing
+from airflow_actionproject.operators.streetspectra import StreetSpectraLoadInternalDBOperator
+
+
 # ---------------------
 # Default DAG arguments
 # ---------------------
@@ -276,6 +281,14 @@ load_zoo_classifications = ActionUploadOperator(
     input_path = "/tmp/zooniverse/transformed-subset-{{ds}}.json",
     dag        = streetspectra_zoo_export_dag,
 )
+
+internal_db_classifications = StreetSpectraLoadInternalDBOperator(
+    task_id    = "internal_db_classifications",
+    conn_id    = "streetspectra-action-database",
+    input_path = "/tmp/zooniverse/transformed-subset-{{ds}}.json",
+    dag        = streetspectra_zoo_export_dag,
+)
+
 
 clean_up_classif_files = BashOperator(
     task_id      = "clean_up_classif_files",

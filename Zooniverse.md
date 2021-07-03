@@ -18,3 +18,11 @@
 3) probar a exportar sin subject sets
 ***RESPUESTA***
 Exporta sin errores a un fichero con un JSON vacio []
+
+
+# Valores enumerativos de la paleta de espectros
+LED - Light Emitting Diode. => 0
+HPS - High Pressure Sodium. => 1
+LPS - Low Pressure Sodium. => 2
+MH - Metal Halide. => 3
+MV - Mercury Vapor. => 4
