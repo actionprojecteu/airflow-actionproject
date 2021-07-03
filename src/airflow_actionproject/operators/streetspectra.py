@@ -261,14 +261,22 @@ class StreetSpectraLoadInternalDBOperator(BaseOperator):
 			new["source_x"]   = value[0]["x"]
 			new["source_y"]   = value[0]["y"]
 			# Spectrum tool info
-			new["spectrum_x"] = value[1]["x"]
-			new["spectrum_y"] = value[1]["y"]
-			new["spectrum_width"]  = value[1]["width"]
-			new["spectrum_height"] = value[1]["height"]
-			new["spectrum_angle"]  = value[1]["angle"]
-			new["spectrum_type"]   = value[1]["details"][0]["value"]
-			new["spectrum_type"] = self.SPECTRUM_TYPE[new["spectrum_type"]] # remap spectrum type codes to strings
-		else:
+			if len(value) > 1:	# The user really used this tool
+				new["spectrum_x"] = value[1]["x"]
+				new["spectrum_y"] = value[1]["y"]
+				new["spectrum_width"]  = value[1]["width"]
+				new["spectrum_height"] = value[1]["height"]
+				new["spectrum_angle"]  = value[1]["angle"]
+				new["spectrum_type"]   = value[1]["details"][0]["value"]
+				new["spectrum_type"] = self.SPECTRUM_TYPE[new["spectrum_type"]] # remap spectrum type codes to strings
+			else:
+				new["spectrum_x"] = None
+				new["spectrum_y"] = None
+				new["spectrum_width"]  = None
+				new["spectrum_height"] = None
+				new["spectrum_angle"]  = None
+				new["spectrum_type"]   = None
+		else:	# The user skipped this observation
 			# Light source info
 			new["source_x"]   = None
 			new["source_y"]   = None
