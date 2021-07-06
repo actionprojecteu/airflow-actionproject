@@ -35,12 +35,9 @@ from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperat
 from airflow_actionproject.operators.zenodo        import ZenodoPublishDatasetOperator
 from airflow_actionproject.operators.action        import ActionDownloadFromVariableDateOperator, ActionUploadOperator
 from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator, ZooniverseTransformOperator
+from airflow_actionproject.operators.streetspectra import ExtractClassificationOperator, AggregateClassificationOperator
 from airflow_actionproject.callables.zooniverse    import zooniverse_manage_subject_sets
 from airflow_actionproject.callables.action        import check_number_of_entries
-
-
-# Under testing
-from airflow_actionproject.operators.streetspectra import StreetSpectraLoadInternalDBOperator
 
 
 # ---------------------
@@ -282,10 +279,18 @@ load_zoo_classifications = ActionUploadOperator(
     dag        = streetspectra_zoo_export_dag,
 )
 
-internal_db_classifications = StreetSpectraLoadInternalDBOperator(
+# UNDER TEST
+internal_db_classifications = ExtractClassificationOperator(
     task_id    = "internal_db_classifications",
     conn_id    = "streetspectra-temp-db",
     input_path = "/tmp/zooniverse/transformed-subset-{{ds}}.json",
+    dag        = streetspectra_zoo_export_dag,
+)
+
+# UNDER TEST
+under_test = AggregateClassificationOperator(
+    task_id    = "under_test",
+    conn_id    = "streetspectra-temp-db",
     dag        = streetspectra_zoo_export_dag,
 )
 

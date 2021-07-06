@@ -12,6 +12,7 @@
 
 import os
 import json
+import math
 import datetime
 
 # ---------------
@@ -212,17 +213,17 @@ class ZooniverseTransformOperator(BaseOperator):
 
 
 
-class StreetSpectraLoadInternalDBOperator(BaseOperator):
+class ExtractClassificationOperator(BaseOperator):
 	"""
-	Operator that transforms classifications exported from 
-	Zooniverse API to an ACTION  StreetSpectra JSON file.
+	Operator that extracts a subset of Zooniverse export file 
+	and writes into a handy, simplified classification table.
 	
 	Parameters
 	—————
 	input_path : str
-	(Templated) Path to read the input JSON to transform to.
-	output_path : str
-	(Templated) Path to write the output transformed JSON.
+	(Templated) Path to read the transformed input JSON file.
+	conn_id : str
+	SQLite connection identifier for the output table
 	"""
 	
 	template_fields = ("_input_path",)
@@ -361,6 +362,90 @@ class StreetSpectraLoadInternalDBOperator(BaseOperator):
 		self._insert(classifications)
 		
 
-		
 
+class AggregateClassificationOperator(BaseOperator):
+	"""
+	Operator that transforms classifications exported from 
+	Zooniverse API to an ACTION  StreetSpectra JSON file.
+	
+	Parameters
+	—————
+	conn_id : str
+	SQLite connection identifier for the output table
+	"""
+
+	RADIUS = 20
+
+	@apply_defaults
+	def __init__(self, conn_id, **kwargs):
+		super().__init__(**kwargs)
+		self._conn_id     = conn_id
+
+	def _setup_source_ids(self, subject_id, hook):
+		user_ids = hook.get_records('''
+			SELECT user_id 
+			FROM zooniverse_classification_t
+			WHERE subject_id = :subject_id
+			AND source_id IS NULL
+			ORDER BY user_id ASC
+			''', 
+			parameters={'subject_id': subject_id}
+		)
+		for source_id, user_id in enumerate(user_ids, start=1):
+			user_id = user_id[0]
+			self.log.info(f"Subject_id={subject_id} => User_id={user_id} => initial source id={source_id}")
+			hook.run('''
+				UPDATE zooniverse_classification_t
+				SET source_id = :source_id
+				WHERE subject_id = :subject_id AND user_id = :user_id
+				''', 
+				parameters={'user_id': user_id, 'source_id': source_id, 'subject_id': subject_id}
+			)
+
+	
+	def _cluster(self, subject_id, hook):
+		info1 = hook.get_records('''
+			SELECT user_id, source_x, source_y
+			FROM zooniverse_classification_t 
+			WHERE subject_id = :subject_id
+			ORDER BY user_id ASC
+			''', 
+			parameters={'subject_id': subject_id}
+		)
+		for user1, x1, y1 in info1:
+			info2 = hook.get_records('''
+				SELECT user_id, source_x, source_y, source_id
+				FROM zooniverse_classification_t 
+				WHERE subject_id = :subject_id AND user_id > :user_id
+				''', 
+				parameters={'user_id': user1, 'subject_id': subject_id}
+			)
+			if info2:
+				for user2, x2, y2, source2 in info2:
+					distance = math.sqrt((x1-x2)**2 + (y1-y2)**2)
+					if distance < self.RADIUS:
+						(source1,) = hook.get_first('''
+							SELECT source_id 
+							FROM zooniverse_classification_t 
+							WHERE subject_id = :subject_id AND user_id = :user_id
+							''',
+							parameters={'user_id': user1, 'subject_id': subject_id})
+						self.log.info(f"Subject_id={subject_id} => user1={user1}, user2={user2} => source id from {source2} to {source1} inhertited from user1 {user1}")
+						hook.run('''
+							UPDATE zooniverse_classification_t
+							SET source_id = :source_id
+							WHERE subject_id = :subject_id AND user_id = :user_id
+							''', 
+							parameters={'user_id': user2, 'source_id': source1, 'subject_id': subject_id}
+						)
+
+
+
+	def execute(self, context):
+		hook = SqliteHook(sqlite_conn_id=self._conn_id)
+		subjects = hook.get_records('''SELECT DISTINCT subject_id FROM zooniverse_classification_t WHERE spectrum_type IS NOT NULL''')
+		for (subject_id,) in subjects:
+			self._setup_source_ids(subject_id, hook)
+			self._cluster(subject_id, hook)
+			
 		
