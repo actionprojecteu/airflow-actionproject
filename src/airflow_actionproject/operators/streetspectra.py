@@ -14,6 +14,7 @@ import os
 import json
 import math
 import datetime
+import collections
 
 # ---------------
 # Airflow imports
@@ -374,7 +375,7 @@ class AggregateClassificationOperator(BaseOperator):
 	SQLite connection identifier for the output table
 	"""
 
-	RADIUS = 20
+	RADIUS = 10
 
 	@apply_defaults
 	def __init__(self, conn_id, **kwargs):
@@ -440,6 +441,33 @@ class AggregateClassificationOperator(BaseOperator):
 						)
 
 
+	def _classify(self, subject_id, hook):
+		source_ids = hook.get_records('''
+				SELECT DISTINCT source_id
+				FROM zooniverse_classification_t 
+				WHERE subject_id = :subject_id
+				''', 
+				parameters={'subject_id': subject_id}
+			)
+		for (source_id,) in source_ids:
+			spectra_type = hook.get_records('''
+					SELECT spectrum_type
+					FROM zooniverse_classification_t 
+					WHERE subject_id = :subject_id AND source_id = :source_id
+					''', 
+					parameters={'source_id': source_id, 'subject_id': subject_id}
+				)
+			N = len(spectra_type)
+			most_common = collections.Counter(s[0] for s in spectra_type).most_common()
+			self.log.info(f"subject_id={subject_id}, source_id={source_id} => most_common={most_common}")
+			votes = f"{most_common[0][1]}/{N}"
+			if len(most_common) > 1 and most_common[0][1] == most_common[1][1]:
+				self.log.info(f"subject_id={subject_id}, source_id={source_id} => AMBIGUOUS ({votes})")
+			elif most_common[0][0] is None:
+				 self.log.info(f"subject_id={subject_id}, source_id={source_id} => UNKNOWN ({votes})")
+			else:
+				self.log.info(f"subject_id={subject_id}, source_id={source_id} => {most_common[0][0]} ({votes})")
+
 
 	def execute(self, context):
 		hook = SqliteHook(sqlite_conn_id=self._conn_id)
@@ -447,5 +475,5 @@ class AggregateClassificationOperator(BaseOperator):
 		for (subject_id,) in subjects:
 			self._setup_source_ids(subject_id, hook)
 			self._cluster(subject_id, hook)
-			
+			self._classify(subject_id, hook)
 		

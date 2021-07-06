@@ -20,43 +20,21 @@ FROM zooniverse_classification_t
 WHERE subject_id = 63339761
 ORDER BY source_id ASC;
 
+SELECT source_id, source_x, source_y, spectrum_type, user_id
+FROM zooniverse_classification_t 
+WHERE subject_id = 63339763
+ORDER BY source_id ASC;
+
 UPDATE zooniverse_classification_t
 SET source_id = NULL
 WHERE source_id IS NOT NULL;
 
-SELECT a.source_x, a.source_y, a.spectrum_type, a.user_id
-FROM zooniverse_classification_t AS a
-CROSS JOIN zooniverse_classification_t AS b
-WHERE a.subject_id = 63339761
-AND a.source_x != b.source_x
-AND a.source_y != b.source_y
-AND ABS(a.source_x - b.source_x) < 100
-AND ABS(a.source_y - b.source_y) < 100
-;
-
-
-SELECT a.source_x, a.source_y, a.spectrum_type, a.user_id
-FROM zooniverse_classification_t AS a
-CROSS JOIN zooniverse_classification_t AS b
-WHERE a.subject_id = 63339761 
-AND b.subject_id = 63339761
-AND a.source_x != b.source_x
-AND a.source_y != b.source_y
-AND ABS(a.source_x - b.source_x) < 5
-AND ABS(a.source_y - b.source_y) < 5
-;
-
--- Deteccion de clusteres de 2 o mas puntos cercanos
-SELECT a.source_x, a.source_y, b.source_x, b.source_y, ABS(a.source_x - b.source_x), ABS(a.source_y - b.source_y)
-FROM zooniverse_classification_t AS a
-CROSS JOIN zooniverse_classification_t AS b
-WHERE a.subject_id = 63339761 
-AND b.subject_id = 63339761
-AND a.source_x != b.source_x
-AND a.source_y != b.source_y
-AND ABS(a.source_x - b.source_x) < 5
-AND ABS(a.source_y - b.source_y) < 5
-;
+-- AQUI ESTA TODO MENOS EL AGREGADO DE CLASIFICACION
+SELECT subject_id, source_id, count(*), AVG(source_x), AVG(source_y),
+  image_id, image_url, image_long, image_lat, image_observer, image_comment, image_source, image_created_at
+FROM zooniverse_classification_t 
+GROUP BY subject_id, source_id
+ORDER BY subject_id ASC;
 
 
 -- marking a source Id with identifier and average coordinates from several observers
