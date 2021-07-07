@@ -91,7 +91,9 @@ CREATE TABLE IF NOT EXISTS zooniverse_aggregate_t
     source_y            REAL,   -- mean light source y coordinate within the image
     spectrum_type       TEXT,   -- spectrum type mode (statistics), One of (LED, MV, HPS, LPS, MH, None) or 'Ambiguous' if such mode do not exists
     spectrum_dist       TEXT,   -- Python like expression with the classification distribution made by the users given to a given light source  
-    spectrum_count      INT,    -- Number of classification count for this light source 
+    spectrum_count      INT,    -- Classification count for this particular light source
+    kappa_fleiss        REAL,   -- Fleiss' kappa when classifying all source_ids within a given subject_id
+    n_users             INT,    -- Number of users that has classified light sources in a given subject_id (used to compute Fleiss' kappa)
     image_id            INT,    -- observing platform image Id
     image_url           TEXT,   -- observing platform image URL
     image_long          REAL,   -- image aprox. longitude

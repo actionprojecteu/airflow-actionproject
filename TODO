@@ -6,10 +6,16 @@ Short-term
   y hay que cargarlo como metadata en Zooniverse 
 
 * Añadir la kappa de Fleiss ?
+- prpbar con un caso conocido
+* tirra todo el modelo de datos y recrearlo de nuevo
+- renombrat tablas zooniverse_* por zoo_t
+
 
 UPDATE zooniverse_classification_t
 SET source_id = NULL
 WHERE source_id IS NOT NULL;
+
+airflow tasks test streetspectra_zoo_export_dag under_test 2021-07-07
 
 
 Test cases
@@ -38,3 +44,6 @@ Otras ideas
   - No subir imagen
   - en su lugar, añadir "same_as" : uuid de la ultima observacion con imagen
   - pero si añadir nueva marca de tiempo, coordenadas y nickname
+
+
+
