@@ -74,18 +74,24 @@ CREATE TABLE IF NOT EXISTS zooniverse_classification_t
     image_comment       TEXT,   -- image optional comment
     image_source        TEXT,   -- observing platform name (currently "Epicollect 5")
     image_created_at    TEXT,   -- image creation UTC timestamp in iso 8601 format, with trailing Z
+    image_spectrum      TEXT,   -- spectrum type, if any, given by observer to his intended target (which we really don't know)
 
     PRIMARY KEY(id)
 );
 
+
 CREATE TABLE IF NOT EXISTS zooniverse_aggregate_t
 (
-    source_id           TEXT,   -- light source id within the subject constructed as <subject id>-<x>-<y> where x,y are the source integer coords
+    subject_id          INT,    -- Zooinverse image id subject of classification
+    source_id           INT,    -- light source identifier pointed to by user within the subject.
+    source_label        TEXT,   -- light source label constructed as '<subject id>+<x>+<y>' where x,y are the source integer coords
     width               INT,    -- image width
     height              INT,    -- image height
-    source_x            REAL,    -- mean light source x coordinate within the image
-    source_y            REAL,    -- mean light source y coordinate within the image
-    spectrum_type       TEXT,   -- spectrum type mode (statistics), One of (LED, MV, HPS, LPS, MH) or NULL if such mode do not exists
+    source_x            REAL,   -- mean light source x coordinate within the image
+    source_y            REAL,   -- mean light source y coordinate within the image
+    spectrum_type       TEXT,   -- spectrum type mode (statistics), One of (LED, MV, HPS, LPS, MH, None) or 'Ambiguous' if such mode do not exists
+    spectrum_dist       TEXT,   -- Python like expression with the classification distribution made by the users given to a given light source  
+    spectrum_count      INT,    -- Number of classification count for this light source 
     image_id            INT,    -- observing platform image Id
     image_url           TEXT,   -- observing platform image URL
     image_long          REAL,   -- image aprox. longitude
@@ -94,6 +100,7 @@ CREATE TABLE IF NOT EXISTS zooniverse_aggregate_t
     image_comment       TEXT,   -- image optional comment
     image_source        TEXT,   -- observing platform name (currently "Epicollect 5")
     image_created_at    TEXT,   -- image creation UTC timestamp in iso 8601 format, with trailing Z
+    image_spectrum      TEXT,   -- spectrum type, if any, given by observer to his intended target (which we really don't know)
 
-    PRIMARY KEY(source_id)
+    PRIMARY KEY(subject_id, source_id)
 );

@@ -301,6 +301,8 @@ class ExtractClassificationOperator(BaseOperator):
 		new["image_comment"]    = value["comment"]
 		new["image_source"]     = value["source"]
 		new["image_created_at"] = value["created_at"]
+		# AQUI HAY QUE AÑADIR
+		# new["image_spectrum"] = value["spectrum"]
 		return new
 
 	def _insert(self, classifications):
@@ -442,6 +444,7 @@ class AggregateClassificationOperator(BaseOperator):
 
 
 	def _classify(self, subject_id, hook):
+		result = list()
 		source_ids = hook.get_records('''
 				SELECT DISTINCT source_id
 				FROM zooniverse_classification_t 
@@ -449,6 +452,7 @@ class AggregateClassificationOperator(BaseOperator):
 				''', 
 				parameters={'subject_id': subject_id}
 			)
+		
 		for (source_id,) in source_ids:
 			spectra_type = hook.get_records('''
 					SELECT spectrum_type
@@ -457,23 +461,105 @@ class AggregateClassificationOperator(BaseOperator):
 					''', 
 					parameters={'source_id': source_id, 'subject_id': subject_id}
 				)
-			N = len(spectra_type)
-			most_common = collections.Counter(s[0] for s in spectra_type).most_common()
-			self.log.info(f"subject_id={subject_id}, source_id={source_id} => most_common={most_common}")
-			votes = f"{most_common[0][1]}/{N}"
-			if len(most_common) > 1 and most_common[0][1] == most_common[1][1]:
-				self.log.info(f"subject_id={subject_id}, source_id={source_id} => AMBIGUOUS ({votes})")
-			elif most_common[0][0] is None:
-				 self.log.info(f"subject_id={subject_id}, source_id={source_id} => UNKNOWN ({votes})")
+			votes = collections.Counter(s[0] for s in spectra_type).most_common()
+			if len(votes) > 1 and votes[0][1] == votes[1][1]:
+				spectrum_type = 'Ambiguous'
+			elif votes[0][0] is None:
+				 spectrum_type = None
 			else:
-				self.log.info(f"subject_id={subject_id}, source_id={source_id} => {most_common[0][0]} ({votes})")
+				spectrum_type = votes[0][0]
+			info = {'subject_id': subject_id, 'source_id': source_id, 'spectrum_type': spectrum_type, 'spectrum_dist': str(votes)}
+			result.append(info)
+		self.log.info(f"{result}")
+		return result
+
+	def _update(self, final_classifications, hook):
+		# Update everything not depending on the aggregate classifications first
+		hook.run('''
+				INSERT OR IGNORE INTO zooniverse_aggregate_t (
+				subject_id,
+			    source_id,
+			    source_label,
+			    width,
+			    height,
+			    source_x,
+			    source_y,
+			    -- spectrum_type,
+			    -- spectrum_dist,
+			    spectrum_count,
+			    image_id,
+			    image_url,
+			    image_long,
+			    image_lat,
+			    image_observer,
+			    image_comment,
+			    image_source,
+			    image_created_at,
+			    image_spectrum
+			)
+			SELECT 
+				subject_id, 
+				source_id, 
+				subject_id || '+' || CAST(ROUND(AVG(source_x),0) AS INT) || '+' || CAST(ROUND(AVG(source_y),0) AS INT),
+				width,
+			    height,
+				AVG(source_x), 
+				AVG(source_y),
+				COUNT(*),
+				image_id, 
+				image_url, 
+				image_long, 
+				image_lat, 
+				image_observer, 
+				image_comment, 
+				image_source, 
+				image_created_at, 
+				image_spectrum
+			FROM zooniverse_classification_t 
+			GROUP BY subject_id, source_id
+			'''
+		)
+		for classification in final_classifications:
+			for source in classification:
+				#self.log.info(source)
+				hook.run('''
+					UPDATE zooniverse_aggregate_t
+					SET 
+						spectrum_type = :spectrum_type,
+						spectrum_dist = :spectrum_dist
+					WHERE subject_id = :subject_id
+					AND source_id    = :source_id
+					''',
+					parameters=source
+				)
+
 
 
 	def execute(self, context):
 		hook = SqliteHook(sqlite_conn_id=self._conn_id)
-		subjects = hook.get_records('''SELECT DISTINCT subject_id FROM zooniverse_classification_t WHERE spectrum_type IS NOT NULL''')
+		final_classifications = list()
+		subjects = hook.get_records('''
+			SELECT DISTINCT subject_id 
+			FROM zooniverse_classification_t 
+			WHERE source_id IS NULL
+		''')
 		for (subject_id,) in subjects:
 			self._setup_source_ids(subject_id, hook)
 			self._cluster(subject_id, hook)
-			self._classify(subject_id, hook)
+			result = self._classify(subject_id, hook)
+			final_classifications.append(result)
+		self._update(final_classifications, hook)
+
 		
+		
+# -- marking a source Id with identifier and average coordinates from several observers
+# SELECT '63339761' || '-' || CAST(ROUND(AVG(a.source_x),0) AS INT) || '-' || CAST(ROUND(AVG(a.source_y),0) AS INT), AVG(a.source_x), AVG(a.source_y)
+# FROM zooniverse_classification_t AS a
+# CROSS JOIN zooniverse_classification_t AS b
+# WHERE a.subject_id = 63339761 
+# AND b.subject_id = 63339761
+# AND a.source_x != b.source_x
+# AND a.source_y != b.source_y
+# AND ABS(a.source_x - b.source_x) < 5
+# AND ABS(a.source_y - b.source_y) < 5
+# ;

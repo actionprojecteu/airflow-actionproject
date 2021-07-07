@@ -1,53 +1,15 @@
 Short-term
 ==========
-* Refacturizar paquete
-* Depurar el list de la BD de Mongo con Esteban
-  - es la tarea airflow download_from_action
 
-# Lista de subjects que tienen alguna clasificacionn
-select distinct subject_id from zooniverse_classification_t where spectrum_type is not null;
+* Añadir el nuevo campo 'spectrum' de la lista de Epicollect 5
+- Afecyta a varios operadores en la cadena
+  y hay que cargarlo como metadata en Zooniverse 
 
-# Y paraa cada subject
-select user_id, spectrum_type, source_x, source_y from zooniverse_classification_t where subject_id = ;
-
-miramos la cercania de (source_x, source_y) (radio 10 pixels) y si esta cerca
-- hacer la clasificacion agregada
-Si estan lejos, hacer subgrupos por posicion (source_x, source_y) y hacer la clasificacion agregada
-
-
-SELECT source_id, source_x, source_y, spectrum_type, user_id
-FROM zooniverse_classification_t 
-WHERE subject_id = 63339761
-ORDER BY source_id ASC;
-
-SELECT source_id, source_x, source_y, spectrum_type, user_id
-FROM zooniverse_classification_t 
-WHERE subject_id = 63339763
-ORDER BY source_id ASC;
+* Añadir la kappa de Fleiss ?
 
 UPDATE zooniverse_classification_t
 SET source_id = NULL
 WHERE source_id IS NOT NULL;
-
--- AQUI ESTA TODO MENOS EL AGREGADO DE CLASIFICACION
-SELECT subject_id, source_id, count(*), AVG(source_x), AVG(source_y),
-  image_id, image_url, image_long, image_lat, image_observer, image_comment, image_source, image_created_at
-FROM zooniverse_classification_t 
-GROUP BY subject_id, source_id
-ORDER BY subject_id ASC;
-
-
--- marking a source Id with identifier and average coordinates from several observers
-SELECT '63339761' || '-' || CAST(ROUND(AVG(a.source_x),0) AS INT) || '-' || CAST(ROUND(AVG(a.source_y),0) AS INT), AVG(a.source_x), AVG(a.source_y)
-FROM zooniverse_classification_t AS a
-CROSS JOIN zooniverse_classification_t AS b
-WHERE a.subject_id = 63339761 
-AND b.subject_id = 63339761
-AND a.source_x != b.source_x
-AND a.source_y != b.source_y
-AND ABS(a.source_x - b.source_x) < 5
-AND ABS(a.source_y - b.source_y) < 5
-;
 
 
 Test cases
@@ -59,7 +21,6 @@ Test cases
 Mid-term
 ========
 * Upload subject sets de 500-1000. Limite de subject sets es 10000
-* transformacion y carga de clasificaciones
 
 Long-term
 ==========
