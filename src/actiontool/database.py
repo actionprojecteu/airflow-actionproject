@@ -25,7 +25,7 @@ from . import RESOURCES_DBASE_DIR
 # Module constants
 # ----------------
 
-SQL_TEST_STRING = "SELECT COUNT(*) FROM zooniverse_export_t"
+SQL_TEST_STRING = "SELECT COUNT(*) FROM zoo_export_t"
 
 # -----------------------
 # Module global variables
@@ -77,8 +77,8 @@ def create_schema(connection, schema_path, test_query, data_dir_path=None):
 # ----------------------
 
 def install(options):
-	log.info(f"Installing '{options.name}'' database into {options.directory}")
+	log.info(f"Installing '{options.name}' database into {options.directory}")
 	connection = open_database(os.path.join(options.directory, options.name + '.db'))
 	schema_path = os.path.join(RESOURCES_DBASE_DIR, options.name + '.sql')
 	create_schema(connection, schema_path, SQL_TEST_STRING)
-	log.info(f"Installed '{options.name}'' database into {options.directory}")
+	log.info(f"Installed '{options.name}' database into {options.directory}")

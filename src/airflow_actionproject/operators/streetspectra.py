@@ -84,7 +84,7 @@ class EC5TransformOperator(BaseOperator):
         self._output_path = output_path
 
 
-    def execute(self, con):
+    def execute(self, context):
         self.log.info(f"Transforming EC5 observations from JSON file {self._input_path}")
         with open(self._input_path) as fd:
             entries = json.load(fd)
@@ -150,7 +150,7 @@ class ZooniverseImportOperator(BaseOperator):
         self._display_name = display_name
 
 
-    def execute(self, con):
+    def execute(self, context):
         self.log.info(f"Uploading observations to Zooniverse from {self._input_path}")
         with open(self._input_path) as fd:
             subjects_metadata = json.load(fd)
@@ -180,7 +180,7 @@ class ZooniverseTransformOperator(BaseOperator):
         self._output_path = output_path
 
 
-    def execute(self, con):
+    def execute(self, context):
         self.log.info(f"Transforming Zooniverse classifications from JSON file {self._input_path}")
         with open(self._input_path) as fd:
             entries = json.load(fd)
@@ -214,10 +214,11 @@ class ZooniverseTransformOperator(BaseOperator):
 
 
 
-class ExtractClassificationsOperator(BaseOperator):
+class ClassificationsOperator(BaseOperator):
     """
-    Operator that extracts a subset of Zooniverse export file 
-    and writes into a handy, simplified classification table.
+    Operator that extracts a subset of Zooniverse export file
+    relevant to StreetSpectra and writes into a handy, 
+    simplified classification table.
     
     Parameters
     —————
@@ -247,9 +248,9 @@ class ExtractClassificationsOperator(BaseOperator):
     def _extract(self, classification):
         new = dict()
         # General info
-        new["id"]         = classification["classification_id"]
-        new["subject_id"] = classification["subject_ids"]
-        new["user_id"]    = classification["user_id"]
+        new["classification_id"] = classification["classification_id"]
+        new["subject_id"]        = classification["subject_ids"]
+        new["user_id"]           = classification["user_id"]
         sd = classification["metadata"]["subject_dimensions"][0]
         if sd:
             new["width"]      = sd["naturalWidth"]
@@ -301,8 +302,7 @@ class ExtractClassificationsOperator(BaseOperator):
         new["image_comment"]    = value["comment"]
         new["image_source"]     = value["source"]
         new["image_created_at"] = value["created_at"]
-        # AQUI HAY QUE AÑADIR
-        # new["image_spectrum"] = value["spectrum"]
+        new["image_spectrum"]   = value.get("spectrum", None)
         return new
 
     def _insert(self, classifications):
@@ -310,8 +310,8 @@ class ExtractClassificationsOperator(BaseOperator):
         for classification in classifications:
             hook.run(
                     '''
-                    INSERT OR IGNORE INTO zooniverse_classification_t (
-                        id                  ,
+                    INSERT OR IGNORE INTO spectra_classification_t (
+                        classification_id   ,
                         subject_id          ,
                         user_id             ,
                         width               ,
@@ -331,9 +331,10 @@ class ExtractClassificationsOperator(BaseOperator):
                         image_observer      ,
                         image_comment       ,
                         image_source        ,
-                        image_created_at
+                        image_created_at    ,
+                        image_spectrum
                     ) VALUES (
-                        :id                  ,
+                        :classification_id   ,
                         :subject_id          ,
                         :user_id             ,
                         :width               ,
@@ -353,7 +354,8 @@ class ExtractClassificationsOperator(BaseOperator):
                         :image_observer      ,
                         :image_comment       ,
                         :image_source        ,
-                        :image_created_at
+                        :image_created_at    ,
+                        :image_spectrum
                     )
                     ''', parameters=classification)
 
@@ -366,10 +368,11 @@ class ExtractClassificationsOperator(BaseOperator):
         
 
 
-class AggregateClassificationsOperator(BaseOperator):
+class AggregateOperator(BaseOperator):
     """
-    Operator that transforms classifications exported from 
-    Zooniverse API to an ACTION  StreetSpectra JSON file.
+    Operator that aggregates individual classifications form users
+    into a combined classification, for each source identridfied
+    in a given Zooniverse subject. 
     
     Parameters
     —————
@@ -387,7 +390,7 @@ class AggregateClassificationsOperator(BaseOperator):
     def _setup_source_ids(self, subject_id, hook):
         user_ids = hook.get_records('''
             SELECT user_id 
-            FROM zooniverse_classification_t
+            FROM spectra_classification_t
             WHERE subject_id = :subject_id
             AND source_id IS NULL
             ORDER BY user_id ASC
@@ -398,7 +401,7 @@ class AggregateClassificationsOperator(BaseOperator):
             user_id = user_id[0]
             self.log.info(f"Subject_id={subject_id} => User_id={user_id} => initial source id={source_id}")
             hook.run('''
-                UPDATE zooniverse_classification_t
+                UPDATE spectra_classification_t
                 SET source_id = :source_id
                 WHERE subject_id = :subject_id AND user_id = :user_id
                 ''', 
@@ -409,7 +412,7 @@ class AggregateClassificationsOperator(BaseOperator):
     def _cluster(self, subject_id, hook):
         info1 = hook.get_records('''
             SELECT user_id, source_x, source_y
-            FROM zooniverse_classification_t 
+            FROM spectra_classification_t 
             WHERE subject_id = :subject_id
             ORDER BY user_id ASC
             ''', 
@@ -418,7 +421,7 @@ class AggregateClassificationsOperator(BaseOperator):
         for user1, x1, y1 in info1:
             info2 = hook.get_records('''
                 SELECT user_id, source_x, source_y, source_id
-                FROM zooniverse_classification_t 
+                FROM spectra_classification_t 
                 WHERE subject_id = :subject_id AND user_id > :user_id
                 ''', 
                 parameters={'user_id': user1, 'subject_id': subject_id}
@@ -429,13 +432,13 @@ class AggregateClassificationsOperator(BaseOperator):
                     if distance < self.RADIUS:
                         (source1,) = hook.get_first('''
                             SELECT source_id 
-                            FROM zooniverse_classification_t 
+                            FROM spectra_classification_t 
                             WHERE subject_id = :subject_id AND user_id = :user_id
                             ''',
                             parameters={'user_id': user1, 'subject_id': subject_id})
                         self.log.info(f"Subject_id={subject_id} => user1={user1}, user2={user2} => source id from {source2} to {source1} inhertited from user1 {user1}")
                         hook.run('''
-                            UPDATE zooniverse_classification_t
+                            UPDATE spectra_classification_t
                             SET source_id = :source_id
                             WHERE subject_id = :subject_id AND user_id = :user_id
                             ''', 
@@ -447,7 +450,7 @@ class AggregateClassificationsOperator(BaseOperator):
         ratings = list()
         source_ids = hook.get_records('''
                 SELECT DISTINCT source_id
-                FROM zooniverse_classification_t 
+                FROM spectra_classification_t 
                 WHERE subject_id = :subject_id
                 ''', 
                 parameters={'subject_id': subject_id}
@@ -456,7 +459,7 @@ class AggregateClassificationsOperator(BaseOperator):
         for (source_id,) in source_ids:
             spectra_type = hook.get_records('''
                     SELECT spectrum_type
-                    FROM zooniverse_classification_t 
+                    FROM spectra_classification_t 
                     WHERE subject_id = :subject_id AND source_id = :source_id
                     ''', 
                     parameters={'source_id': source_id, 'subject_id': subject_id}
@@ -473,11 +476,11 @@ class AggregateClassificationsOperator(BaseOperator):
             ratings.append(rating)
         self.log.info(f"{ratings}")
          
-        kappa = self._kappa_fleiss(ratings)
-        return ratings, kappa
+        kappa, n_users = self._kappa_fleiss(ratings)
+        return ratings, kappa, n_users
 
 
-    def kappa_fleiss(self, ratings, n_raters):
+    def _kappa_fleiss(self, ratings):
         '''
         Calculates Fleiss' kappa.
         ratings  - array of classifications
@@ -491,7 +494,9 @@ class AggregateClassificationsOperator(BaseOperator):
         categories = ('LED','HPS','LPS','MV','MH', None)
         # find out the number of raters by aggregating 
         # all counters for all source_ids of the same subject_id
-        n          sum(sum(rating['counter'][key] for key in rating['counter']) for rating in ratings)
+        n = sum(sum(rating['counter'][key] for key in rating['counter']) for rating in ratings)
+        if n == 1:
+            return None, n
         subjects   = set(rating['source_id'] for rating in ratings)
         # Build the rating matrix
         for rating in ratings:
@@ -523,7 +528,7 @@ class AggregateClassificationsOperator(BaseOperator):
     def _update(self, final_classifications, hook):
         # Update everything not depending on the aggregate classifications first
         hook.run('''
-                INSERT OR IGNORE INTO zooniverse_aggregate_t (
+                INSERT OR IGNORE INTO spectra_aggregate_t (
                 subject_id,
                 source_id,
                 source_label,
@@ -560,7 +565,7 @@ class AggregateClassificationsOperator(BaseOperator):
                 image_source, 
                 image_created_at, 
                 image_spectrum
-            FROM zooniverse_classification_t 
+            FROM spectra_classification_t 
             GROUP BY subject_id, source_id
             '''
         )
@@ -570,10 +575,10 @@ class AggregateClassificationsOperator(BaseOperator):
                 source['kappa_fleiss'] = kappa   # Common to all classifications in the subject
                 source['users_count']  = n_users # Common to all classifications in the subject
                 hook.run('''
-                    UPDATE zooniverse_aggregate_t
+                    UPDATE spectra_aggregate_t
                     SET 
                         spectrum_type = :spectrum_type,
-                        spectrum_dist = :spectrum_dist
+                        spectrum_dist = :spectrum_dist,
                         kappa_fleiss  = :kappa_fleiss,
                         users_count   = :users_count
                     WHERE subject_id = :subject_id
@@ -589,14 +594,14 @@ class AggregateClassificationsOperator(BaseOperator):
         final_classifications = list()
         subjects = hook.get_records('''
             SELECT DISTINCT subject_id 
-            FROM zooniverse_classification_t 
+            FROM spectra_classification_t 
             WHERE source_id IS NULL
         ''')
         for (subject_id,) in subjects:
             self._setup_source_ids(subject_id, hook)
             self._cluster(subject_id, hook)
-            ratings, kappa, n = self._classify(subject_id, hook)
-            final_classifications.append((ratings,kappa,n))
+            ratings, kappa, n_users = self._classify(subject_id, hook)
+            final_classifications.append((ratings,kappa,n_users))
         self._update(final_classifications, hook)
 
         

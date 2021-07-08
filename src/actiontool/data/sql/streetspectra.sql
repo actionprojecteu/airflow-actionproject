@@ -4,8 +4,9 @@
 
 ------------------------------------------------------------------------
 -- This is the current Zooniverse export data format
+-- This table is generic for all Zooniverse projects
 -- Some columns are complex like metadata, annotations and subject_data
--- which containes nested ifnromation
+-- which containes nested information
 ------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS zoo_export_t
@@ -29,7 +30,7 @@ CREATE TABLE IF NOT EXISTS zoo_export_t
 );
 
 ----------------------------------------------------------------------
--- This table keeps track of classification runs
+-- This table keeps track of Zooniverse export runs
 -- If we run a classification by Airflow backfilling
 -- we may loose track of a window of classifications not dumped to the
 -- ACTION database.
@@ -45,14 +46,14 @@ CREATE TABLE IF NOT EXISTS zoo_export_window_t
 );
 
 ------------------------------------------------------------------------
--- This is the table where we extract all relevant data 
+-- This is the table where we extract all StreetSpectra relevant data 
 -- from Zooniverse individual classifications entries in the export file
 -- in order to make final aggregate classifications
 ------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS zoo_classification_t
+CREATE TABLE IF NOT EXISTS spectra_classification_t
 (
-    id                  INT,    -- unique Zooinverse classification identifier
+    classification_id   INT,    -- unique Zooinverse classification identifier
     subject_id          INT,    -- Zooinverse image id subject of classification
     user_id             INT,    -- Zooinverse user id in case of non anonymous classifications
     width               INT,    -- image width
@@ -64,41 +65,47 @@ CREATE TABLE IF NOT EXISTS zoo_classification_t
     spectrum_y          REAL,   -- spectrum box corner point, y coordinate
     spectrum_width      REAL,   -- spectrum box width
     spectrum_height     REAL,   -- spectrum box height
-    spectrum_angle      REAL,   -- spectrum box angle (degrees) (respect to X?)
+    spectrum_angle      REAL,   -- spectrum box angle (degrees) (respect to X axis?)
     spectrum_type       TEXT,   -- spectrum type (LED, MV, HPS, etc)
     image_id            INT,    -- observing platform image Id
     image_url           TEXT,   -- observing platform image URL
     image_long          REAL,   -- image aprox. longitude
     image_lat           REAL,   -- image aprox. latitude
-    image_observer      TEXT,   -- observer nickname if any
+    image_observer      TEXT,   -- observer nickname, if any
     image_comment       TEXT,   -- image optional comment
     image_source        TEXT,   -- observing platform name (currently "Epicollect 5")
     image_created_at    TEXT,   -- image creation UTC timestamp in iso 8601 format, with trailing Z
     image_spectrum      TEXT,   -- spectrum type, if any, given by observer to his intended target (which we really don't know)
 
-    PRIMARY KEY(id)
+    PRIMARY KEY(classification_id)
 );
 
 
-CREATE TABLE IF NOT EXISTS zoo_aggregate_t
+------------------------------------------------------------------------
+-- This is the table where we store all StreetSpectra aggregate
+-- classifications data ready to be exported to a suitable file format
+-- to Zenodo 
+------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS spectra_aggregate_t
 (
     subject_id          INT,    -- Zooinverse image id subject of classification
     source_id           INT,    -- light source identifier pointed to by user within the subject.
     source_label        TEXT,   -- light source label constructed as '<subject id>+<x>+<y>' where x,y are the source integer coords
     width               INT,    -- image width
     height              INT,    -- image height
-    source_x            REAL,   -- mean light source x coordinate within the image
-    source_y            REAL,   -- mean light source y coordinate within the image
+    source_x            REAL,   -- average light source x coordinate within the image
+    source_y            REAL,   -- average light source y coordinate within the image
     spectrum_type       TEXT,   -- spectrum type mode (statistics), One of (LED, MV, HPS, LPS, MH, None) or 'Ambiguous' if such mode do not exists
     spectrum_dist       TEXT,   -- Python like expression with the classification distribution made by the users given to a given light source  
     spectrum_count      INT,    -- Classification count for this particular light source
-    kappa_fleiss        REAL,   -- Fleiss' kappa when classifying all source_ids within a given subject_id
-    users_count         INT,    -- Number of users that has classified light sources in a given subject_id (used to compute Fleiss' kappa)
+    kappa_fleiss        REAL,   -- Fleiss' Kappa when classifying all source_ids within a given subject_id
+    users_count         INT,    -- Number of users that has classified light sources in a given subject_id (used to compute Fleiss' Kappa)
     image_id            INT,    -- observing platform image Id
     image_url           TEXT,   -- observing platform image URL
     image_long          REAL,   -- image aprox. longitude
     image_lat           REAL,   -- image aprox. latitude
-    image_observer      TEXT,   -- observer nickname if any
+    image_observer      TEXT,   -- observer nickname, if any
     image_comment       TEXT,   -- image optional comment
     image_source        TEXT,   -- observing platform name (currently "Epicollect 5")
     image_created_at    TEXT,   -- image creation UTC timestamp in iso 8601 format, with trailing Z

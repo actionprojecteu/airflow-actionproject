@@ -35,7 +35,7 @@ from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperat
 from airflow_actionproject.operators.zenodo        import ZenodoPublishDatasetOperator
 from airflow_actionproject.operators.action        import ActionDownloadFromVariableDateOperator, ActionUploadOperator
 from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator, ZooniverseTransformOperator
-from airflow_actionproject.operators.streetspectra import ExtractClassificationsOperator, AggregateClassificationsOperator
+from airflow_actionproject.operators.streetspectra import ClassificationsOperator, AggregateOperator
 from airflow_actionproject.callables.zooniverse    import zooniverse_manage_subject_sets
 from airflow_actionproject.callables.action        import check_number_of_entries
 
@@ -280,14 +280,14 @@ load_zoo_classifications = ActionUploadOperator(
 )
 
 # UNDER TEST
-internal_db_classifications = ExtractClassificationsOperator(
-    task_id    = "internal_db_classifications",
+streetspectra_classifications = ClassificationsOperator(
+    task_id    = "streetspectra_classifications",
     conn_id    = "streetspectra-temp-db",
     input_path = "/tmp/zooniverse/transformed-subset-{{ds}}.json",
     dag        = streetspectra_zoo_export_dag,
 )
 
-aggregate_classifications = AggregateClassificationsOperator(
+aggregate_classifications = AggregateOperator(
     task_id    = "aggregate_classifications",
     conn_id    = "streetspectra-temp-db",
     dag        = streetspectra_zoo_export_dag,
@@ -307,7 +307,7 @@ clean_up_classif_files = BashOperator(
 #export_classifications >> only_new_classifications >> transform_classfications >> load_zoo_classifications >> clean_up_classif_files
 
 # Para pruebas, lanzar a mano la tarea export_classifications y luego lanzar este dag de abajo entero
-only_new_classifications >> transform_classfications >>  internal_db_classifications >> aggregate_classifications
+only_new_classifications >> transform_classfications >>  streetspectra_classifications >> aggregate_classifications
 
 ################### TESTING ZENODO
 # THERE ARE MISSING TASKS LIKE:

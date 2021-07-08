@@ -121,7 +121,7 @@ class ZooniverseDeltaOperator(BaseOperator):
 		self.log.info(f"Consolidating data from {self._input_path}")
 		with open(self._input_path) as fd:
 			raw_exported = json.load(fd)
-		(before,) = hook.get_first('''SELECT MAX(created_at) FROM zooniverse_export_t''')
+		(before,) = hook.get_first('''SELECT MAX(created_at) FROM zoo_export_t''')
 		for record in raw_exported:
 			record['gold_standard'] = json.dumps(record['gold_standard'])
 			record['expert']        = json.dumps(record['expert'])
@@ -131,7 +131,7 @@ class ZooniverseDeltaOperator(BaseOperator):
 			record['subject_ids']   = json.dumps(record['subject_ids'])
 			hook.run(
 				'''
-				INSERT OR REPLACE INTO zooniverse_export_t (
+				INSERT OR REPLACE INTO zoo_export_t (
 					classification_id,
 					user_name,
 					user_id,
@@ -163,13 +163,13 @@ class ZooniverseDeltaOperator(BaseOperator):
 					:subject_ids
 				)
 				''', parameters=record)
-		(after,) = hook.get_first('''SELECT MAX(created_at) FROM zooniverse_export_t''')
+		(after,) = hook.get_first('''SELECT MAX(created_at) FROM zoo_export_t''')
 		timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 		differences = {'executed_at': timestamp, 'before': before, 'after': after}
 		self.log.info(f"Logging classifications differences {differences}")
 		hook.run(
 			'''
-			INSERT INTO zooniverse_export_window_t (executed_at, before, after) VALUES (:executed_at, :before, :after)
+			INSERT INTO zoo_export_window_t (executed_at, before, after) VALUES (:executed_at, :before, :after)
 			''', parameters=differences)
 
 
@@ -178,7 +178,7 @@ class ZooniverseDeltaOperator(BaseOperator):
 		before, after = hook.get_first(
 			'''
 			SELECT before, after 
-			FROM zooniverse_export_window_t
+			FROM zoo_export_window_t
 			ORDER BY executed_at DESC
 			LIMIT 1
 			'''
@@ -191,7 +191,7 @@ class ZooniverseDeltaOperator(BaseOperator):
 			new_classifications = hook.get_records(
 				'''
 				SELECT * 
-				FROM zooniverse_export_t
+				FROM zoo_export_t
 				WHERE created_at > :threshold
 				ORDER BY created_at ASC
 				''',
