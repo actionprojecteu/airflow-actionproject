@@ -11,6 +11,7 @@
 # -------------------
 
 import os
+import csv
 import json
 import math
 import datetime
@@ -601,6 +602,73 @@ class AggregateOperator(BaseOperator):
             self._cluster(subject_id, hook)
             ratings, kappa, n_users = self._classify(subject_id, hook)
             final_classifications.append((ratings,kappa,n_users))
-        self._update(final_classifications, hook)
+        if subjects:
+            self._update(final_classifications, hook)
 
-        
+
+class ExportCSVOperator(BaseOperator):
+    """
+    Operator that export aggregated StreetSpectra classifications 
+    into a CSV file
+    
+    Parameters
+    —————
+    conn_id : str
+    SQLite connection identifier for the output table
+    output_path : str
+    (Templated) Path to write the output CSV file.
+    """
+    
+    HEADER = (  
+            'source_label',
+            'width',
+            'height',
+            'source_x',
+            'source_y',
+            'spectrum_type',
+            'spectrum_dist',
+            'spectrum_count',
+            'kappa',
+            'users_count',
+            'image_id',
+            'image_url',
+            'image_long',
+            'image_lat',
+            'image_observer',
+            'image_comment',
+            'image_source',
+            'image_created_at',
+            'image_spectrum'
+    )
+    template_fields = ("_output_path",)
+
+
+    @apply_defaults
+    def __init__(self, input_path, output_path, **kwargs):
+        super().__init__(**kwargs)
+        self._conn_id     = conn_id
+        self._output_path = output_path
+
+    def _gen_sql(self):
+        columns = ",".join(self.HEADER)
+        return f"SELECT {columns} FROM spectra_aggregate_t ORDER BY image_created_at DESC"
+
+    def execute(self, context):
+        self.log.info(f"Exporting StreetSpectra classifications to CSV file {self._output_path}")
+        hook = SqliteHook(sqlite_conn_id=conn_id)
+        aggregated_classifications = hook.get_records(self._gen_sql());
+        # Make sure the output directory exists.
+        output_dir = os.path.dirname(self._output_path)
+        os.makedirs(output_dir, exist_ok=True)
+        with open(self._output_path,'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=self.HEADER)
+            writer.writeheader()
+            for classification in aggregated_classifications:
+                writer.writerow(classification)
+        self.log.info(f"Exported StreetSpectra classifications to CSV file {self._output_path}")
+
+    # --------------
+    # Helper methods
+    # --------------
+    
+   

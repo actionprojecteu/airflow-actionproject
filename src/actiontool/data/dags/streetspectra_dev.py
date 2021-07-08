@@ -35,9 +35,10 @@ from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperat
 from airflow_actionproject.operators.zenodo        import ZenodoPublishDatasetOperator
 from airflow_actionproject.operators.action        import ActionDownloadFromVariableDateOperator, ActionUploadOperator
 from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator, ZooniverseTransformOperator
-from airflow_actionproject.operators.streetspectra import ClassificationsOperator, AggregateOperator
+from airflow_actionproject.operators.streetspectra import ClassificationsOperator, AggregateOperator, ExportCSVOperator
 from airflow_actionproject.callables.zooniverse    import zooniverse_manage_subject_sets
 from airflow_actionproject.callables.action        import check_number_of_entries
+from airflow_actionproject.callables.streetspectra import check_new_subjects
 
 
 # ---------------------
@@ -287,15 +288,52 @@ streetspectra_classifications = ClassificationsOperator(
     dag        = streetspectra_zoo_export_dag,
 )
 
+
+check_new_spectra = BranchPythonOperator(
+    task_id         = "check_new_spectra",
+    python_callable = check_new_subjects,
+    op_kwargs = {
+        "conn_id"       : "streetspectra-temp-db",
+        "true_task_id"  : "aggregate_classifications",
+        "false_task_id" : "dummy_task",
+    },
+    dag           = streetspectra_zoo_export_dag
+)
+
+dummy_task = DummyOperator(
+    task_id    = "dummy_task",
+    dag        = streetspectra_zoo_export_dag,
+)
+
 aggregate_classifications = AggregateOperator(
     task_id    = "aggregate_classifications",
     conn_id    = "streetspectra-temp-db",
     dag        = streetspectra_zoo_export_dag,
 )
 
+export_aggregated = ExportCSVOperator(
+    task_id     = "export_aggregated",
+    conn_id     = "streetspectra-temp-db",
+    output_path = "/tmp/zooniverse/streetspectra-aggregated.csv",
+    dag         = streetspectra_zoo_export_dag,
+)
+
+publish_to_zenodo = ZenodoPublishDatasetOperator(
+    task_id     = "publish_to_zenodo",
+    conn_id     = "streetspectra-zenodo-sandbox",
+    title       = "Street Spectra aggregated classifications",
+    file_path   = "/tmp/zooniverse/streetspectra-aggregated.csv",
+    description = "CSV file containing accumulated light sources data and metadata.",
+    version     = '{{ds}}',
+    creators    = [{'name': "Zamorano, Jaime"}, {'name': "Gonzalez, Rafael"}],
+    communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project"}],
+    dag         = streetspectra_zoo_export_dag,
+)
+
 
 clean_up_classif_files = BashOperator(
     task_id      = "clean_up_classif_files",
+    trigger_rule = "none_failed",    # For execution of just one preceeding branch only
     bash_command = "rm /tmp/zooniverse/complete-{{ds}}.json; rm /tmp/zooniverse/subset-{{ds}}.json; rm /tmp/zooniverse/transformed-subset-{{ds}}.json",
     dag          = streetspectra_zoo_export_dag,
 )
@@ -307,31 +345,8 @@ clean_up_classif_files = BashOperator(
 #export_classifications >> only_new_classifications >> transform_classfications >> load_zoo_classifications >> clean_up_classif_files
 
 # Para pruebas, lanzar a mano la tarea export_classifications y luego lanzar este dag de abajo entero
-only_new_classifications >> transform_classfications >>  streetspectra_classifications >> aggregate_classifications
+only_new_classifications >> transform_classfications >>  streetspectra_classifications >> check_new_spectra 
+check_new_spectra >> [aggregate_classifications, dummy_task]
+aggregate_classifications >> export_aggregated >> publish_to_zenodo
 
-################### TESTING ZENODO
-# THERE ARE MISSING TASKS LIKE:
-#  * EXPORT GLOBAL CLASSIFICATIONS
-# BEFORE PUBLISHING TO ZENODO
-
-streetspectra_publishing_dag = DAG(
-    'streetspectra_publishing_dag',
-    default_args      = default_args,
-    description       = 'StreetSpectra publication workflow',
-    schedule_interval = '@monthly',
-    start_date        = days_ago(2),
-    tags              = ['StreetSpectra', 'ACTION PROJECT'],
-)
-
-publish_to_zenodo = ZenodoPublishDatasetOperator(
-    task_id     = "publish_to_zenodo",
-    conn_id     = "streetspectra-zenodo-sandbox",
-    title       = "Prueba 15",
-    file_path   = "example.txt",
-    description = "Testing Prueba 15",
-    version     = '21.05',
-    creators    = [{'name': "Zamorano, Jaime"}, {'name': "Gonzalez, Rafael"}],
-    communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project"}],
-    dag         = streetspectra_publishing_dag,
-)
-
+[publish_to_zenodo, dummy_task] >> clean_up_classif_files
