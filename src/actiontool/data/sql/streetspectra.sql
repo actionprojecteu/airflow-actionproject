@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS spectra_aggregate_t
     spectrum_type       TEXT,   -- spectrum type mode (statistics), One of (LED, MV, HPS, LPS, MH, None) or 'Ambiguous' if such mode do not exists
     spectrum_dist       TEXT,   -- Python like expression with the classification distribution made by the users given to a given light source  
     spectrum_count      INT,    -- Classification count for this particular light source
-    kappa_fleiss        REAL,   -- Fleiss' Kappa when classifying all source_ids within a given subject_id
+    kappa               REAL,   -- Fleiss' Kappa when classifying all source_ids within a given subject_id
     users_count         INT,    -- Number of users that has classified light sources in a given subject_id (used to compute Fleiss' Kappa)
     image_id            INT,    -- observing platform image Id
     image_url           TEXT,   -- observing platform image URL

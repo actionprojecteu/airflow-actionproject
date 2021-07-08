@@ -475,7 +475,6 @@ class AggregateOperator(BaseOperator):
                 spectrum_type = votes[0][0]
             rating = {'subject_id': subject_id, 'source_id': source_id, 'spectrum_type': spectrum_type, 'spectrum_dist': str(votes), 'counter': counter}
             ratings.append(rating)
-        self.log.info(f"{ratings}")
         kappa, n_users = self._kappa_fleiss(self.CATEGORIES, ratings)
         return ratings, kappa, n_users
 
@@ -505,15 +504,15 @@ class AggregateOperator(BaseOperator):
                 column = category
                 number = rating['counter'][category]
                 matrix[(row,column)] = number
-        N = len(ratings)
-        # Calculate the different p_j
+    
+        # Calculate the different p_j by summing columns
         for category in categories:
             s = sum(matrix[(subject,category)] for subject in subjects)
             p_j[category] = s / float(N * n)
-        # Calculate the different P_i
+        # Calculate the different P_i by summing rows
         for subject in subjects:
             s = sum(matrix[(subject,category)]**2 for category in categories)
-            P_i[subject] = s / float(n*(n-1))
+            P_i[subject] = (s - n)/ float(n*(n-1))
         P_bar   = sum(P_i[key]    for key in P_i) / N
         P_e_bar = sum(p_j[key]**2 for key in p_j)
         if P_e_bar == 1.0:
@@ -572,14 +571,14 @@ class AggregateOperator(BaseOperator):
         for classification, kappa, n_users in final_classifications:
             for source in classification:
                 #self.log.info(source)
-                source['kappa_fleiss'] = kappa   # Common to all classifications in the subject
-                source['users_count']  = n_users # Common to all classifications in the subject
+                source['kappa'] = kappa          # Common to all classifications in the subject
+                source['users_count'] = n_users  # Common to all classifications in the subject
                 hook.run('''
                     UPDATE spectra_aggregate_t
                     SET 
                         spectrum_type = :spectrum_type,
                         spectrum_dist = :spectrum_dist,
-                        kappa_fleiss  = :kappa_fleiss,
+                        kappa         = :kappa,
                         users_count   = :users_count
                     WHERE subject_id = :subject_id
                     AND source_id    = :source_id
