@@ -381,6 +381,7 @@ class AggregateOperator(BaseOperator):
     """
 
     RADIUS = 10
+    CATEGORIES = ('LED','HPS','LPS','MV','MH', None)
 
     @apply_defaults
     def __init__(self, conn_id, **kwargs):
@@ -475,23 +476,22 @@ class AggregateOperator(BaseOperator):
             rating = {'subject_id': subject_id, 'source_id': source_id, 'spectrum_type': spectrum_type, 'spectrum_dist': str(votes), 'counter': counter}
             ratings.append(rating)
         self.log.info(f"{ratings}")
-         
-        kappa, n_users = self._kappa_fleiss(ratings)
+        kappa, n_users = self._kappa_fleiss(self.CATEGORIES, ratings)
         return ratings, kappa, n_users
 
 
-    def _kappa_fleiss(self, ratings):
+    def _kappa_fleiss(self, categories, ratings):
         '''
         Calculates Fleiss' kappa.
-        ratings  - array of classifications
-        n_raters - number of raters
+        categories - sequence of categories
+        ratings    - sequence of classifications given each one by collection.Counters
         See https://en.wikipedia.org/wiki/Fleiss%27_kappa=  
         '''
         matrix     = dict()
         p_j        = dict()
         P_i        = dict()
         N          = len(ratings)
-        categories = ('LED','HPS','LPS','MV','MH', None)
+        
         # find out the number of raters by aggregating 
         # all counters for all source_ids of the same subject_id
         n = sum(sum(rating['counter'][key] for key in rating['counter']) for rating in ratings)
