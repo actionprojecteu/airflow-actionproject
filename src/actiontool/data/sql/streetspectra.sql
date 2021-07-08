@@ -8,7 +8,7 @@
 -- which containes nested ifnromation
 ------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS zooniverse_export_t
+CREATE TABLE IF NOT EXISTS zoo_export_t
 (
     classification_id   INTEGER,
     user_name           TEXT,    -- only for registered users
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS zooniverse_export_t
 -- This history log helps identify when and provides info to fix it.
 ---------------------------------------------------------------------- 
 
-CREATE TABLE IF NOT EXISTS zooniverse_export_window_t
+CREATE TABLE IF NOT EXISTS zoo_export_window_t
 (
     executed_at         TEXT,   -- execution timestamp
     before              TEXT,   -- lastest classification timestamp before insertion
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS zooniverse_export_window_t
 -- in order to make final aggregate classifications
 ------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS zooniverse_classification_t
+CREATE TABLE IF NOT EXISTS zoo_classification_t
 (
     id                  INT,    -- unique Zooinverse classification identifier
     subject_id          INT,    -- Zooinverse image id subject of classification
@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS zooniverse_classification_t
 );
 
 
-CREATE TABLE IF NOT EXISTS zooniverse_aggregate_t
+CREATE TABLE IF NOT EXISTS zoo_aggregate_t
 (
     subject_id          INT,    -- Zooinverse image id subject of classification
     source_id           INT,    -- light source identifier pointed to by user within the subject.
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS zooniverse_aggregate_t
     spectrum_dist       TEXT,   -- Python like expression with the classification distribution made by the users given to a given light source  
     spectrum_count      INT,    -- Classification count for this particular light source
     kappa_fleiss        REAL,   -- Fleiss' kappa when classifying all source_ids within a given subject_id
-    n_users             INT,    -- Number of users that has classified light sources in a given subject_id (used to compute Fleiss' kappa)
+    users_count         INT,    -- Number of users that has classified light sources in a given subject_id (used to compute Fleiss' kappa)
     image_id            INT,    -- observing platform image Id
     image_url           TEXT,   -- observing platform image URL
     image_long          REAL,   -- image aprox. longitude

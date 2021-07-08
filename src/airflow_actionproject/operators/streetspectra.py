@@ -214,7 +214,7 @@ class ZooniverseTransformOperator(BaseOperator):
 
 
 
-class ExtractClassificationOperator(BaseOperator):
+class ExtractClassificationsOperator(BaseOperator):
     """
     Operator that extracts a subset of Zooniverse export file 
     and writes into a handy, simplified classification table.
@@ -366,7 +366,7 @@ class ExtractClassificationOperator(BaseOperator):
         
 
 
-class AggregateClassificationOperator(BaseOperator):
+class AggregateClassificationsOperator(BaseOperator):
     """
     Operator that transforms classifications exported from 
     Zooniverse API to an ACTION  StreetSpectra JSON file.
@@ -567,15 +567,15 @@ class AggregateClassificationOperator(BaseOperator):
         for classification, kappa, n_users in final_classifications:
             for source in classification:
                 #self.log.info(source)
-                source['kappa_fleiss'] = kappa
-                source['n_users']      = n_users
+                source['kappa_fleiss'] = kappa   # Common to all classifications in the subject
+                source['users_count']  = n_users # Common to all classifications in the subject
                 hook.run('''
                     UPDATE zooniverse_aggregate_t
                     SET 
                         spectrum_type = :spectrum_type,
                         spectrum_dist = :spectrum_dist
                         kappa_fleiss  = :kappa_fleiss,
-                        n_users       = :n_users
+                        users_count   = :users_count
                     WHERE subject_id = :subject_id
                     AND source_id    = :source_id
                     ''',
@@ -597,7 +597,6 @@ class AggregateClassificationOperator(BaseOperator):
             self._cluster(subject_id, hook)
             ratings, kappa, n = self._classify(subject_id, hook)
             final_classifications.append((ratings,kappa,n))
-        # COMENTAMOS ESTO DE MOMENTO
-        #self._update(final_classifications, hook)
+        self._update(final_classifications, hook)
 
         
