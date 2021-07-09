@@ -1,17 +1,30 @@
 Short-term
 ==========
 
+* DAG dependencies
+- refromulat algunas depencencias
+
+* Añadir 'started_at' y 'finished_at' a spectra_classification_t
+  classified_at
+* cambios a  spectra_aggregate_t 
+- añadir rejection_label to the spectra_aggregate_t
+  - 'Ambiguous' va ahora en rejection_label y None a spectrum_type
+-  añadir 'spectrum_users' to the spectra_aggregate_t
+- exportar agreement que es la fraccion como texto spectrum_count/spectrum_users
+   
+
 * Añadir el nuevo campo 'spectrum' de la lista de Epicollect 5
 - Afecyta a varios operadores en la cadena
   y hay que cargarlo como metadata en Zooniverse 
-
-* probar la kappa de Fleiss con un caso conocido
 
 
 Test cases
 ==========
 0) Epicollect V tienes observaciones desde el mes 2019-09-01
 
+1) Probar qué pasa cuando le damos a 'Next' en todo un subject_set con retirement_count = 1
+
+2) Probar qué pasa cuando le damos a 'Next' con subjects already seen
 
 
 Mid-term
@@ -20,9 +33,7 @@ Mid-term
 
 Long-term
 ==========
-* reduccion de clasificaciones
- -  ver el estadistico de la kappa de Fleis
-    https://en.wikipedia.org/wiki/Fleiss%27_kappa
+
 * integrar con un GIS o bien Generacion de mapa en GUAIX como lo hace Jaime
 
 Otras ideas

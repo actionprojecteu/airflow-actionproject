@@ -159,60 +159,6 @@ class ZooniverseImportOperator(BaseOperator):
             hook.add_subject_set(self._display_name, subjects_metadata)
 
 
-class ZooniverseTransformOperator(BaseOperator):
-    """
-    Operator that transforms classifications exported from 
-    Zooniverse API to an ACTION  StreetSpectra JSON file.
-    
-    Parameters
-    —————
-    input_path : str
-    (Templated) Path to read the input JSON to transform to.
-    output_path : str
-    (Templated) Path to write the output transformed JSON.
-    """
-    
-    template_fields = ("_input_path", "_output_path")
-
-    @apply_defaults
-    def __init__(self, input_path, output_path, **kwargs):
-        super().__init__(**kwargs)
-        self._input_path  = input_path
-        self._output_path = output_path
-
-
-    def execute(self, context):
-        self.log.info(f"Transforming Zooniverse classifications from JSON file {self._input_path}")
-        with open(self._input_path) as fd:
-            entries = json.load(fd)
-        result = list(self._zoo_remapper(entries))
-        # Make sure the output directory exists.
-        output_dir = os.path.dirname(self._output_path)
-        os.makedirs(output_dir, exist_ok=True)
-        with open(self._output_path,'w') as fd:
-            json.dump(result, fp=fd, indent=2)
-        self.log.info(f"Transformed Zooniverse classifications to output JSON file {self._output_path}")
-
-    # --------------
-    # Helper methods
-    # --------------
-    def _remap(self, item):
-        # Fixes timestamps format
-        dt = datetime.datetime.strptime(item['created_at'],'%Y-%m-%d %H:%M:%S UTC').replace(microsecond=0)
-        item['created_at'] = dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-        # Delete items not needed
-        # Add extra items
-        item["project"] = "street-spectra"
-        item["source"] = "Zooniverse"
-        item["obs_type"] = "classification"
-        return item
-
-
-    def _zoo_remapper(self, entries):
-        '''Map Zooniverse to an ernal, more convenient representation'''
-        # Use generators instead of lists
-        return map(self._remap, entries)
-
 
 
 class ClassificationsOperator(BaseOperator):
@@ -644,7 +590,7 @@ class ExportCSVOperator(BaseOperator):
 
 
     @apply_defaults
-    def __init__(self, input_path, output_path, **kwargs):
+    def __init__(self, conn_id, output_path, **kwargs):
         super().__init__(**kwargs)
         self._conn_id     = conn_id
         self._output_path = output_path

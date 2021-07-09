@@ -33,8 +33,8 @@ from airflow.providers.sqlite.operators.sqlite import SqliteOperator
 from airflow_actionproject.operators.epicollect5   import EC5ExportEntriesOperator
 from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperator, ZooniverseDeltaOperator
 from airflow_actionproject.operators.zenodo        import ZenodoPublishDatasetOperator
-from airflow_actionproject.operators.action        import ActionDownloadFromVariableDateOperator, ActionUploadOperator
-from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator, ZooniverseTransformOperator
+from airflow_actionproject.operators.action        import ZooniverseTransformOperator, ActionDownloadFromVariableDateOperator, ActionUploadOperator
+from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator
 from airflow_actionproject.operators.streetspectra import ClassificationsOperator, AggregateOperator, ExportCSVOperator
 from airflow_actionproject.callables.zooniverse    import zooniverse_manage_subject_sets
 from airflow_actionproject.callables.action        import check_number_of_entries
@@ -248,6 +248,7 @@ streetspectra_zoo_export_dag = DAG(
 # Tasks
 # -----
 
+# Perform the whole Zoonive4rse export from the beginning of the project
 export_classifications = ZooniverseExportOperator(
     task_id     = "export_classifications",
     conn_id     = "streetspectra-zooniverse-test",
@@ -258,6 +259,9 @@ export_classifications = ZooniverseExportOperator(
     dag         = streetspectra_zoo_export_dag,
 )
 
+# Produces an output file with only new classifications
+# made since the last export
+# This valid for any Zooniverse project
 only_new_classifications = ZooniverseDeltaOperator(
     task_id       = "only_new_classifications",
     conn_id       = "streetspectra-temp-db",
@@ -266,13 +270,21 @@ only_new_classifications = ZooniverseDeltaOperator(
     dag           = streetspectra_zoo_export_dag,
 )
 
+# Transforms the new Zooniverse classifcations file in to a JSON
+# file suitable to be loaded into the ACTION database
+# as 'classifications'
+# This is valid for any project that uses the ACTION database API
 transform_classfications = ZooniverseTransformOperator(
     task_id      = "transform_classfications",
     input_path   = "/tmp/zooniverse/subset-{{ds}}.json",
     output_path  = "/tmp/zooniverse/transformed-subset-{{ds}}.json",
+    project      = "street-spectra",
     dag          = streetspectra_zoo_export_dag,
 )
 
+# Loads the transformed file into the ACTION database
+# using the ACTION database API
+# This is valid for any project that uses the ACTION database API
 load_zoo_classifications = ActionUploadOperator(
     task_id    = "load_zoo_classifications",
     conn_id    = "streetspectra-action-database",
@@ -280,7 +292,9 @@ load_zoo_classifications = ActionUploadOperator(
     dag        = streetspectra_zoo_export_dag,
 )
 
-# UNDER TEST
+# In paralel, writes the tranbsformed file into a StreetSpectra
+# relational database
+# This is valid only for StreetSpectra
 streetspectra_classifications = ClassificationsOperator(
     task_id    = "streetspectra_classifications",
     conn_id    = "streetspectra-temp-db",
@@ -288,7 +302,8 @@ streetspectra_classifications = ClassificationsOperator(
     dag        = streetspectra_zoo_export_dag,
 )
 
-
+# Check new spectra to be classified and aggregated
+# This is valid only for StreetSpectra
 check_new_spectra = BranchPythonOperator(
     task_id         = "check_new_spectra",
     python_callable = check_new_subjects,
@@ -300,17 +315,23 @@ check_new_spectra = BranchPythonOperator(
     dag           = streetspectra_zoo_export_dag
 )
 
+# needed for branching
 dummy_task = DummyOperator(
     task_id    = "dummy_task",
     dag        = streetspectra_zoo_export_dag,
 )
 
+# Check new spectra to be classified and aggregated
+# This is valid only for StreetSpectra
 aggregate_classifications = AggregateOperator(
     task_id    = "aggregate_classifications",
     conn_id    = "streetspectra-temp-db",
     dag        = streetspectra_zoo_export_dag,
 )
 
+# Aggregates combied clssifications into a single value for every light source
+# examined by Zooniverse users
+# This is valid only for StreetSpectra
 export_aggregated = ExportCSVOperator(
     task_id     = "export_aggregated",
     conn_id     = "streetspectra-temp-db",
@@ -318,19 +339,21 @@ export_aggregated = ExportCSVOperator(
     dag         = streetspectra_zoo_export_dag,
 )
 
+# Publish a ***dataset*** to Zenodo
+# This is valid for anybody whishing to publish datasets to Zenodo
 publish_to_zenodo = ZenodoPublishDatasetOperator(
     task_id     = "publish_to_zenodo",
     conn_id     = "streetspectra-zenodo-sandbox",
     title       = "Street Spectra aggregated classifications",
     file_path   = "/tmp/zooniverse/streetspectra-aggregated.csv",
     description = "CSV file containing accumulated light sources data and metadata.",
-    version     = '{{ds}}',
+    version     = '{{ execution_date.strftime("%Y.%m")}}',
     creators    = [{'name': "Zamorano, Jaime"}, {'name': "Gonzalez, Rafael"}],
     communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project"}],
     dag         = streetspectra_zoo_export_dag,
 )
 
-
+# Clean up temporary files
 clean_up_classif_files = BashOperator(
     task_id      = "clean_up_classif_files",
     trigger_rule = "none_failed",    # For execution of just one preceeding branch only
@@ -342,11 +365,7 @@ clean_up_classif_files = BashOperator(
 # Task dependencies
 # -----------------
 
-#export_classifications >> only_new_classifications >> transform_classfications >> load_zoo_classifications >> clean_up_classif_files
-
-# Para pruebas, lanzar a mano la tarea export_classifications y luego lanzar este dag de abajo entero
 only_new_classifications >> transform_classfications >>  streetspectra_classifications >> check_new_spectra 
-check_new_spectra >> [aggregate_classifications, dummy_task]
+check_new_spectra         >> [aggregate_classifications, dummy_task]
 aggregate_classifications >> export_aggregated >> publish_to_zenodo
-
 [publish_to_zenodo, dummy_task] >> clean_up_classif_files
