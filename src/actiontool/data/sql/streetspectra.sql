@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS spectra_classification_t
     classification_id   INT,    -- unique Zooinverse classification identifier
     subject_id          INT,    -- Zooinverse image id subject of classification
     user_id             INT,    -- Zooinverse user id in case of non anonymous classifications
+    started_at          TEXT,   -- Classification UTC start timestamp, IS08601 format
+    finished_at         TEXT,   -- Classification UTC end timestamp, IS08601 format
     width               INT,    -- image width
     height              INT,    -- image height
     source_id           INT,    -- light source identifier pointed to by user within the subject. Initially NULL
@@ -74,7 +76,7 @@ CREATE TABLE IF NOT EXISTS spectra_classification_t
     image_observer      TEXT,   -- observer nickname, if any
     image_comment       TEXT,   -- image optional comment
     image_source        TEXT,   -- observing platform name (currently "Epicollect 5")
-    image_created_at    TEXT,   -- image creation UTC timestamp in iso 8601 format, with trailing Z
+    image_created_at    TEXT,   -- image creation UTC timestamp, ISO8601 format
     image_spectrum      TEXT,   -- spectrum type, if any, given by observer to his intended target (which we really don't know)
 
     PRIMARY KEY(classification_id)
@@ -97,10 +99,12 @@ CREATE TABLE IF NOT EXISTS spectra_aggregate_t
     source_x            REAL,   -- average light source x coordinate within the image
     source_y            REAL,   -- average light source y coordinate within the image
     spectrum_type       TEXT,   -- spectrum type mode (statistics), One of (LED, MV, HPS, LPS, MH, None) or 'Ambiguous' if such mode do not exists
-    spectrum_dist       TEXT,   -- Python like expression with the classification distribution made by the users given to a given light source  
-    spectrum_count      INT,    -- Classification count for this particular light source
+    spectrum_count      INT,    -- max. classification count for this particular light source
+    spectrum_users      INT,    -- number of users for this light source. Percent agreement is (spectrum_count/spectrum_users)
+    spectrum_dist       TEXT,   -- classification distribution made by the users for a given light source
     kappa               REAL,   -- Fleiss' Kappa when classifying all source_ids within a given subject_id
     users_count         INT,    -- Number of users that has classified light sources in a given subject_id (used to compute Fleiss' Kappa)
+    rejection_tag       TEXT,   -- When spectrum_type is NULL, shows the reason why
     image_id            INT,    -- observing platform image Id
     image_url           TEXT,   -- observing platform image URL
     image_long          REAL,   -- image aprox. longitude

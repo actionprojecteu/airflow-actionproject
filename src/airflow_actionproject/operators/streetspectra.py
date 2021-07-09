@@ -198,6 +198,8 @@ class ClassificationsOperator(BaseOperator):
         new["classification_id"] = classification["classification_id"]
         new["subject_id"]        = classification["subject_ids"]
         new["user_id"]           = classification["user_id"]
+        new["started_at"]        = classification["metadata"]["started_at"]
+        new["finished_at"]       = classification["metadata"]["finished_at"]
         sd = classification["metadata"]["subject_dimensions"][0]
         if sd:
             new["width"]      = sd["naturalWidth"]
@@ -261,6 +263,8 @@ class ClassificationsOperator(BaseOperator):
                         classification_id   ,
                         subject_id          ,
                         user_id             ,
+                        started_at          ,
+                        finished_at         ,
                         width               ,
                         height              ,
                         source_x            ,
@@ -284,6 +288,8 @@ class ClassificationsOperator(BaseOperator):
                         :classification_id   ,
                         :subject_id          ,
                         :user_id             ,
+                        :started_at          ,
+                        :finished_at         ,
                         :width               ,
                         :height              ,
                         :source_x            ,
@@ -415,12 +421,27 @@ class AggregateOperator(BaseOperator):
             counter = collections.Counter(s[0] for s in spectra_type)
             votes = counter.most_common()
             if len(votes) > 1 and votes[0][1] == votes[1][1]:
-                spectrum_type = 'Ambiguous'
+                spectrum_type = None
+                spectrum_count = votes[0][1]
+                rejection_tag = 'Ambiguous'
             elif votes[0][0] is None:
                  spectrum_type = None
+                 spectrum_count = 0
+                 rejection_tag = 'Never classified'
             else:
-                spectrum_type = votes[0][0]
-            rating = {'subject_id': subject_id, 'source_id': source_id, 'spectrum_type': spectrum_type, 'spectrum_dist': str(votes), 'counter': counter}
+                spectrum_type  = votes[0][0]
+                spectrum_count = votes[0][1]
+                rejection_tag = None
+            rating = {
+                'subject_id'    : subject_id, 
+                'source_id'     : source_id, 
+                'spectrum_type' : spectrum_type,
+                'spectrum_count': spectrum_count,
+                'spectrum_users': sum(counter[key] for key in counter),
+                'spectrum_dist' : str(votes), 
+                'rejection_tag' : rejection_tag,
+                'counter'       : counter,
+            }
             ratings.append(rating)
         kappa, n_users = self._kappa_fleiss(self.CATEGORIES, ratings)
         return ratings, kappa, n_users
@@ -482,7 +503,6 @@ class AggregateOperator(BaseOperator):
                 height,
                 source_x,
                 source_y,
-                spectrum_count,
                 image_id,
                 image_url,
                 image_long,
@@ -501,7 +521,6 @@ class AggregateOperator(BaseOperator):
                 height,
                 AVG(source_x), 
                 AVG(source_y),
-                COUNT(*),
                 image_id, 
                 image_url, 
                 image_long, 
@@ -523,16 +542,18 @@ class AggregateOperator(BaseOperator):
                 hook.run('''
                     UPDATE spectra_aggregate_t
                     SET 
-                        spectrum_type = :spectrum_type,
-                        spectrum_dist = :spectrum_dist,
-                        kappa         = :kappa,
-                        users_count   = :users_count
+                        spectrum_type  = :spectrum_type,
+                        spectrum_dist  = :spectrum_dist,
+                        spectrum_users = :spectrum_users,
+                        spectrum_count = :spectrum_count,
+                        rejection_tag  = :rejection_tag,
+                        kappa          = :kappa,
+                        users_count    = :users_count
                     WHERE subject_id = :subject_id
                     AND source_id    = :source_id
                     ''',
                     parameters=source
                 )
-
 
 
     def execute(self, context):
@@ -567,16 +588,14 @@ class ExportCSVOperator(BaseOperator):
     
     HEADER = (  
             'source_label',
-            'width',
-            'height',
             'source_x',
             'source_y',
             'spectrum_type',
             'spectrum_dist',
-            'spectrum_count',
+            'agreement',
+            'rejection_tag',
             'kappa',
             'users_count',
-            'image_id',
             'image_url',
             'image_long',
             'image_lat',
@@ -586,6 +605,7 @@ class ExportCSVOperator(BaseOperator):
             'image_created_at',
             'image_spectrum'
     )
+    
     template_fields = ("_output_path",)
 
 
@@ -595,20 +615,39 @@ class ExportCSVOperator(BaseOperator):
         self._conn_id     = conn_id
         self._output_path = output_path
 
-    def _gen_sql(self):
-        columns = ",".join(self.HEADER)
-        return f"SELECT {columns} FROM spectra_aggregate_t ORDER BY image_created_at DESC"
+
 
     def execute(self, context):
         self.log.info(f"Exporting StreetSpectra classifications to CSV file {self._output_path}")
-        hook = SqliteHook(sqlite_conn_id=conn_id)
-        aggregated_classifications = hook.get_records(self._gen_sql());
+        hook = SqliteHook(sqlite_conn_id=self._conn_id)
+        aggregated_classifications = hook.get_records('''
+            SELECT
+                source_label,
+                source_x,
+                source_y,
+                spectrum_type,
+                spectrum_dist,
+                spectrum_count || '/' || spectrum_users,
+                rejection_tag,
+                kappa,
+                users_count,
+                image_url,
+                image_long,
+                image_lat,
+                image_observer,
+                image_comment,
+                image_source,
+                image_created_at,
+                image_spectrum
+            FROM spectra_aggregate_t 
+            ORDER BY image_created_at DESC
+        ''');
         # Make sure the output directory exists.
         output_dir = os.path.dirname(self._output_path)
         os.makedirs(output_dir, exist_ok=True)
         with open(self._output_path,'w', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=self.HEADER)
-            writer.writeheader()
+            writer = csv.writer(csvfile, delimiter=';')
+            writer.writerow(self.HEADER)
             for classification in aggregated_classifications:
                 writer.writerow(classification)
         self.log.info(f"Exported StreetSpectra classifications to CSV file {self._output_path}")

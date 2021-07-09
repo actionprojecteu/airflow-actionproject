@@ -1,17 +1,7 @@
 Short-term
 ==========
 
-* DAG dependencies
-- refromulat algunas depencencias
-
-* Añadir 'started_at' y 'finished_at' a spectra_classification_t
-  classified_at
-* cambios a  spectra_aggregate_t 
-- añadir rejection_label to the spectra_aggregate_t
-  - 'Ambiguous' va ahora en rejection_label y None a spectrum_type
--  añadir 'spectrum_users' to the spectra_aggregate_t
-- exportar agreement que es la fraccion como texto spectrum_count/spectrum_users
-   
+* Averiguar como no exportar espectros nunca clasificados
 
 * Añadir el nuevo campo 'spectrum' de la lista de Epicollect 5
 - Afecyta a varios operadores en la cadena
