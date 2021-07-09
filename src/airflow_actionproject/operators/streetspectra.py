@@ -342,6 +342,7 @@ class AggregateOperator(BaseOperator):
         self._conn_id     = conn_id
 
     def _setup_source_ids(self, subject_id, hook):
+        '''Assume that each user has classified a different source within a subject'''
         user_ids = hook.get_records('''
             SELECT user_id 
             FROM spectra_classification_t
@@ -364,6 +365,7 @@ class AggregateOperator(BaseOperator):
 
     
     def _cluster(self, subject_id, hook):
+        '''Examine each source and refer it to the same id if they are near enough'''
         info1 = hook.get_records('''
             SELECT user_id, source_x, source_y
             FROM spectra_classification_t 
@@ -490,8 +492,6 @@ class AggregateOperator(BaseOperator):
         return kappa, n
 
 
-
-
     def _update(self, final_classifications, hook):
         # Update everything not depending on the aggregate classifications first
         hook.run('''
@@ -516,11 +516,11 @@ class AggregateOperator(BaseOperator):
             SELECT 
                 subject_id, 
                 source_id, 
-                subject_id || '+' || CAST(ROUND(AVG(source_x),0) AS INT) || '+' || CAST(ROUND(AVG(source_y),0) AS INT),
+                subject_id || '-' || source_id,
                 width,
                 height,
-                AVG(source_x), 
-                AVG(source_y),
+                ROUND(AVG(source_x),2), 
+                ROUND(AVG(source_y),2),
                 image_id, 
                 image_url, 
                 image_long, 
@@ -639,7 +639,8 @@ class ExportCSVOperator(BaseOperator):
                 image_source,
                 image_created_at,
                 image_spectrum
-            FROM spectra_aggregate_t 
+            FROM spectra_aggregate_t
+            -- WHERE rejection_tag != 'Never classified'
             ORDER BY image_created_at DESC
         ''');
         # Make sure the output directory exists.

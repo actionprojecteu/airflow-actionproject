@@ -1,8 +1,6 @@
 Short-term
 ==========
 
-* Averiguar como no exportar espectros nunca clasificados
-
 * Añadir el nuevo campo 'spectrum' de la lista de Epicollect 5
 - Afecyta a varios operadores en la cadena
   y hay que cargarlo como metadata en Zooniverse 
@@ -12,6 +10,7 @@ Test cases
 ==========
 0) Epicollect V tienes observaciones desde el mes 2019-09-01
 
+*) ¿que pasa con las clasificaciones anonimas?¿cual es su user id?
 1) Probar qué pasa cuando le damos a 'Next' en todo un subject_set con retirement_count = 1
 
 2) Probar qué pasa cuando le damos a 'Next' con subjects already seen
