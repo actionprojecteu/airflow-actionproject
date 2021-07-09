@@ -498,7 +498,6 @@ class AggregateOperator(BaseOperator):
                 INSERT OR IGNORE INTO spectra_aggregate_t (
                 subject_id,
                 source_id,
-                source_label,
                 width,
                 height,
                 source_x,
@@ -516,7 +515,6 @@ class AggregateOperator(BaseOperator):
             SELECT 
                 subject_id, 
                 source_id, 
-                subject_id || '-' || source_id,
                 width,
                 height,
                 ROUND(AVG(source_x),2), 
@@ -622,7 +620,7 @@ class ExportCSVOperator(BaseOperator):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         aggregated_classifications = hook.get_records('''
             SELECT
-                source_label,
+                subject_id || '-' || source_id,
                 source_x,
                 source_y,
                 spectrum_type,

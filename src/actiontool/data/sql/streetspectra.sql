@@ -93,7 +93,6 @@ CREATE TABLE IF NOT EXISTS spectra_aggregate_t
 (
     subject_id          INT,    -- Zooinverse image id subject of classification
     source_id           INT,    -- light source identifier pointed to by user within the subject.
-    source_label        TEXT,   -- light source label constructed as '<subject id>+<x>+<y>' where x,y are the source integer coords
     width               INT,    -- image width
     height              INT,    -- image height
     source_x            REAL,   -- average light source x coordinate within the image
