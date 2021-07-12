@@ -570,8 +570,99 @@ class AggregateOperator(BaseOperator):
         if subjects:
             self._update(final_classifications, hook)
 
+class IndividualExportCSVOperator(BaseOperator):
+    """
+    Operator that export raw individual StreetSpectra classifications 
+    into a CSV file
+    
+    Parameters
+    —————
+    conn_id : str
+    SQLite connection identifier for the output table
+    output_path : str
+    (Templated) Path to write the output CSV file.
+    """
+    
+    HEADER = ( 
+            'subject_id',
+            'classification_id',
+            'user_id',
+            'started_at',
+            'finished_at',
+            'width',
+            'height',
+            'source_x',
+            'source_y',
+            'spectrum_x',
+            'spectrum_y',
+            'spectrum_width',
+            'spectrum_height',
+            'spectrum_angle',
+            'spectrum_type',
+            'image_url',
+            'image_long',
+            'image_lat',
+            'image_observer',
+            'image_comment',
+            'image_source',
+            'image_created_at',
+            'image_spectrum'
+    )
+    
+    template_fields = ("_output_path",)
 
-class ExportCSVOperator(BaseOperator):
+
+    @apply_defaults
+    def __init__(self, conn_id, output_path, **kwargs):
+        super().__init__(**kwargs)
+        self._conn_id     = conn_id
+        self._output_path = output_path
+
+
+    def execute(self, context):
+        self.log.info(f"Exporting StreetSpectra individual classifications to CSV file {self._output_path}")
+        hook = SqliteHook(sqlite_conn_id=self._conn_id)
+        individual_classifications = hook.get_records('''
+            SELECT
+                subject_id,
+                classification_id,
+                user_id,
+                started_at,
+                finished_at,
+                width,
+                height,
+                source_x,
+                source_y,
+                spectrum_x,
+                spectrum_y,
+                spectrum_width,
+                spectrum_height,
+                spectrum_angle,
+                spectrum_type,
+                image_url,
+                image_long,
+                image_lat,
+                image_observer,
+                image_comment,
+                image_source,
+                image_created_at,
+                image_spectrum
+            FROM spectra_classification_t
+            ORDER BY subject_id DESC
+        ''');
+        # Make sure the output directory exists.
+        output_dir = os.path.dirname(self._output_path)
+        os.makedirs(output_dir, exist_ok=True)
+        with open(self._output_path,'w', newline='') as csvfile:
+            writer = csv.writer(csvfile, delimiter=';')
+            writer.writerow(self.HEADER)
+            for classification in individual_classifications:
+                writer.writerow(classification)
+        self.log.info(f"Exported individual StreetSpectra classifications to CSV file {self._output_path}")
+   
+
+
+class AggregateExportCSVOperator(BaseOperator):
     """
     Operator that export aggregated StreetSpectra classifications 
     into a CSV file
@@ -650,9 +741,4 @@ class ExportCSVOperator(BaseOperator):
             for classification in aggregated_classifications:
                 writer.writerow(classification)
         self.log.info(f"Exported StreetSpectra classifications to CSV file {self._output_path}")
-
-    # --------------
-    # Helper methods
-    # --------------
-    
    

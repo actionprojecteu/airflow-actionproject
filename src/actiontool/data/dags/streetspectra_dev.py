@@ -35,7 +35,7 @@ from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperat
 from airflow_actionproject.operators.zenodo        import ZenodoPublishDatasetOperator
 from airflow_actionproject.operators.action        import ZooniverseTransformOperator, ActionDownloadFromVariableDateOperator, ActionUploadOperator
 from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator
-from airflow_actionproject.operators.streetspectra import ClassificationsOperator, AggregateOperator, ExportCSVOperator
+from airflow_actionproject.operators.streetspectra import ClassificationsOperator, AggregateOperator, AggregateExportCSVOperator, IndividualExportCSVOperator
 from airflow_actionproject.callables.zooniverse    import zooniverse_manage_subject_sets
 from airflow_actionproject.callables.action        import check_number_of_entries
 from airflow_actionproject.callables.streetspectra import check_new_subjects
@@ -292,7 +292,7 @@ load_zoo_classifications = ActionUploadOperator(
     dag        = streetspectra_zoo_export_dag,
 )
 
-# In paralel, writes the tranbsformed file into a StreetSpectra
+# In paralel, writes the transformed file into a StreetSpectra
 # relational database
 # This is valid only for StreetSpectra
 streetspectra_classifications = ClassificationsOperator(
@@ -332,21 +332,45 @@ aggregate_classifications = AggregateOperator(
 # Aggregates combied clssifications into a single value for every light source
 # examined by Zooniverse users
 # This is valid only for StreetSpectra
-export_aggregated = ExportCSVOperator(
-    task_id     = "export_aggregated",
+export_aggregated_csv = AggregateExportCSVOperator(
+    task_id     = "export_aggregated_csv",
     conn_id     = "streetspectra-temp-db",
     output_path = "/tmp/zooniverse/streetspectra-aggregated.csv",
     dag         = streetspectra_zoo_export_dag,
 )
 
-# Publish a ***dataset*** to Zenodo
-# This is valid for anybody whishing to publish datasets to Zenodo
-publish_to_zenodo = ZenodoPublishDatasetOperator(
-    task_id     = "publish_to_zenodo",
+# Aggregates combied clssifications into a single value for every light source
+# examined by Zooniverse users
+# This is valid only for StreetSpectra
+export_individual_csv = IndividualExportCSVOperator(
+    task_id     = "export_individual_csv",
+    conn_id     = "streetspectra-temp-db",
+    output_path = "/tmp/zooniverse/streetspectra-individual.csv",
+    dag         = streetspectra_zoo_export_dag,
+)
+
+# Publish the aggregated dataset to Zenodo
+# This operator is valid for anybody wishing to publish datasets to Zenodo
+publish_aggregated = ZenodoPublishDatasetOperator(
+    task_id     = "publish_aggregated",
     conn_id     = "streetspectra-zenodo-sandbox",
     title       = "Street Spectra aggregated classifications",
     file_path   = "/tmp/zooniverse/streetspectra-aggregated.csv",
-    description = "CSV file containing accumulated light sources data and metadata.",
+    description = "CSV file containing aggregated classifications for light sources data and metadata.",
+    version     = '{{ execution_date.strftime("%Y.%m")}}',
+    creators    = [{'name': "Zamorano, Jaime"}, {'name': "Gonzalez, Rafael"}],
+    communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project"}],
+    dag         = streetspectra_zoo_export_dag,
+)
+
+# Publish the individual dataset to Zenodo
+# This operator is valid for anybody wishing to publish datasets to Zenodo
+publish_individual = ZenodoPublishDatasetOperator(
+    task_id     = "publish_individual",
+    conn_id     = "streetspectra-zenodo-sandbox",
+    title       = "Street Spectra aggregated classifications",
+    file_path   = "/tmp/zooniverse/streetspectra-individual.csv",
+    description = "CSV file containing individual classifications for subjects data and metadata.",
     version     = '{{ execution_date.strftime("%Y.%m")}}',
     creators    = [{'name': "Zamorano, Jaime"}, {'name': "Gonzalez, Rafael"}],
     communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project"}],
@@ -365,7 +389,9 @@ clean_up_classif_files = BashOperator(
 # Task dependencies
 # -----------------
 
-only_new_classifications >> transform_classfications >>  streetspectra_classifications >> check_new_spectra 
-check_new_spectra         >> [aggregate_classifications, dummy_task]
-aggregate_classifications >> export_aggregated >> publish_to_zenodo
-[publish_to_zenodo, dummy_task] >> clean_up_classif_files
+export_classifications >> only_new_classifications >> transform_classfications >> load_zoo_classifications
+load_zoo_classifications >> streetspectra_classifications 
+streetspectra_classifications >> check_new_spectra >> [aggregate_classifications, dummy_task]
+aggregate_classifications >> export_aggregated_csv >> export_individual_csv >> publish_individual
+publish_individual >> publish_aggregated
+[publish_aggregated, dummy_task] >> clean_up_classif_files
