@@ -55,7 +55,6 @@ CREATE TABLE IF NOT EXISTS spectra_classification_t
 (
     classification_id   INT,    -- unique Zooinverse classification identifier
     subject_id          INT,    -- Zooinverse image id subject of classification
-    user_id             INT,    -- Zooinverse user id in case of non anonymous classifications
     started_at          TEXT,   -- Classification UTC start timestamp, IS08601 format
     finished_at         TEXT,   -- Classification UTC end timestamp, IS08601 format
     width               INT,    -- image width

@@ -197,7 +197,6 @@ class ClassificationsOperator(BaseOperator):
         # General info
         new["classification_id"] = classification["classification_id"]
         new["subject_id"]        = classification["subject_ids"]
-        new["user_id"]           = classification["user_id"]
         new["started_at"]        = classification["metadata"]["started_at"]
         new["finished_at"]       = classification["metadata"]["finished_at"]
         sd = classification["metadata"]["subject_dimensions"][0]
@@ -262,7 +261,6 @@ class ClassificationsOperator(BaseOperator):
                     INSERT OR IGNORE INTO spectra_classification_t (
                         classification_id   ,
                         subject_id          ,
-                        user_id             ,
                         started_at          ,
                         finished_at         ,
                         width               ,
@@ -287,7 +285,6 @@ class ClassificationsOperator(BaseOperator):
                     ) VALUES (
                         :classification_id   ,
                         :subject_id          ,
-                        :user_id             ,
                         :started_at          ,
                         :finished_at         ,
                         :width               ,
@@ -343,62 +340,62 @@ class AggregateOperator(BaseOperator):
 
     def _setup_source_ids(self, subject_id, hook):
         '''Assume that each user has classified a different source within a subject'''
-        user_ids = hook.get_records('''
-            SELECT user_id 
+        classif_ids = hook.get_records('''
+            SELECT classification_id 
             FROM spectra_classification_t
             WHERE subject_id = :subject_id
             AND source_id IS NULL
-            ORDER BY user_id ASC
+            ORDER BY classification_id ASC
             ''', 
             parameters={'subject_id': subject_id}
         )
-        for source_id, user_id in enumerate(user_ids, start=1):
-            user_id = user_id[0]
-            self.log.info(f"Subject_id={subject_id} => User_id={user_id} => initial source id={source_id}")
+        for source_id, classif_id in enumerate(classif_ids, start=1):
+            classif_id = classif_id[0]
+            self.log.info(f"Subject_id={subject_id} => Classif id={classif_id} => initial source id={source_id}")
             hook.run('''
                 UPDATE spectra_classification_t
                 SET source_id = :source_id
-                WHERE subject_id = :subject_id AND user_id = :user_id
+                WHERE subject_id = :subject_id AND classification_id = :classif_id
                 ''', 
-                parameters={'user_id': user_id, 'source_id': source_id, 'subject_id': subject_id}
+                parameters={'classif_id': classif_id, 'source_id': source_id, 'subject_id': subject_id}
             )
 
     
     def _cluster(self, subject_id, hook):
         '''Examine each source and refer it to the same id if they are near enough'''
         info1 = hook.get_records('''
-            SELECT user_id, source_x, source_y
+            SELECT classification_id, source_x, source_y
             FROM spectra_classification_t 
             WHERE subject_id = :subject_id
-            ORDER BY user_id ASC
+            ORDER BY classification_id ASC
             ''', 
             parameters={'subject_id': subject_id}
         )
-        for user1, x1, y1 in info1:
+        for clsf1, x1, y1 in info1:
             info2 = hook.get_records('''
-                SELECT user_id, source_x, source_y, source_id
+                SELECT classification_id, source_x, source_y, source_id
                 FROM spectra_classification_t 
-                WHERE subject_id = :subject_id AND user_id > :user_id
+                WHERE subject_id = :subject_id AND classification_id > :classif_id
                 ''', 
-                parameters={'user_id': user1, 'subject_id': subject_id}
+                parameters={'classif_id': clsf1, 'subject_id': subject_id}
             )
             if info2:
-                for user2, x2, y2, source2 in info2:
+                for clsf2, x2, y2, source2 in info2:
                     distance = math.sqrt((x1-x2)**2 + (y1-y2)**2)
                     if distance < self.RADIUS:
                         (source1,) = hook.get_first('''
                             SELECT source_id 
                             FROM spectra_classification_t 
-                            WHERE subject_id = :subject_id AND user_id = :user_id
+                            WHERE subject_id = :subject_id AND classification_id = :classif_id
                             ''',
-                            parameters={'user_id': user1, 'subject_id': subject_id})
-                        self.log.info(f"Subject_id={subject_id} => user1={user1}, user2={user2} => source id from {source2} to {source1} inhertited from user1 {user1}")
+                            parameters={'classif_id': clsf1, 'subject_id': subject_id})
+                        self.log.info(f"Subject_id={subject_id} => clsf1={clsf1}, clsf2={clsf2} => source id from {source2} to {source1} inhertited from clsf1 {clsf1}")
                         hook.run('''
                             UPDATE spectra_classification_t
                             SET source_id = :source_id
-                            WHERE subject_id = :subject_id AND user_id = :user_id
+                            WHERE subject_id = :subject_id AND classification_id = :classif_id
                             ''', 
-                            parameters={'user_id': user2, 'source_id': source1, 'subject_id': subject_id}
+                            parameters={'classif_id': clsf2, 'source_id': source1, 'subject_id': subject_id}
                         )
 
 
@@ -422,6 +419,7 @@ class AggregateOperator(BaseOperator):
                 )
             counter = collections.Counter(s[0] for s in spectra_type)
             votes = counter.most_common()
+            self.log.info(f" ############## VOTES {votes}")
             if len(votes) > 1 and votes[0][1] == votes[1][1]:
                 spectrum_type = None
                 spectrum_count = votes[0][1]
@@ -586,7 +584,6 @@ class IndividualExportCSVOperator(BaseOperator):
     HEADER = ( 
             'subject_id',
             'classification_id',
-            'user_id',
             'started_at',
             'finished_at',
             'width',
@@ -626,7 +623,6 @@ class IndividualExportCSVOperator(BaseOperator):
             SELECT
                 subject_id,
                 classification_id,
-                user_id,
                 started_at,
                 finished_at,
                 width,
