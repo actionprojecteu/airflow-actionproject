@@ -42,7 +42,10 @@ from airflow_actionproject.hooks.streetspectra import ZooniverseHook
 # Module constants
 # ----------------
 
-
+"3_Take_an_image_of_a": "https://five.epicollect.net/api/media/action-street-spectra?type=photo&format=entry_original&name=a98ee373-83be-43fa-bd6b-1fc4a445f6cd_1577898066.jpg",
+"4_Illumination_sourc": "",
+"5_Comments": "Roma. Templo de Vespasiano y Tito y Templo de Saturno."
+},
 
 class EC5TransformOperator(BaseOperator):
     """
@@ -63,6 +66,12 @@ class EC5TransformOperator(BaseOperator):
         'created_at'          : 'created_at',
         'uploaded_at'         : 'uploaded_at',
         'title'               : 'title',
+        # Newest form names
+        '1_Share_your_nick_wi': 'observer', 
+        '2_Location'          : 'location',
+        '3_Take_an_image_of_a': 'url',
+        '4_Illumination_sourc': 'spectrum_type',
+        '5_Comments'          : 'comment',
         # New form names
         '1_Share_your_nick_wi': 'observer', 
         '2_Location'          : 'location',
@@ -250,7 +259,9 @@ class ClassificationsOperator(BaseOperator):
         new["image_comment"]    = value["comment"]
         new["image_source"]     = value["source"]
         new["image_created_at"] = value["created_at"]
-        new["image_spectrum"]   = value.get("spectrum", None)
+        new["image_spectrum"]   = value.get("spectrum_type", None)  # original classification made by observer
+        if new["image_spectrum"] == "":
+            new["image_spectrum"] = None
         return new
 
     def _insert(self, classifications):

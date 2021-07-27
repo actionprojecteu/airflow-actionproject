@@ -56,6 +56,7 @@ class ZooniverseHook(ZooniverseBaseHook):
 			subject.metadata['longitude']  = metadata['location']['longitude']
 			subject.metadata['latitude']   = metadata['location']['latitude']
 			subject.metadata['comment']    = metadata['comment']
+			subject.metadata['spectrum_type'] = metadata['spectrum_type']
 			subject.add_location({'image/jpg': metadata['url']})
 			subject.links.project = project
 			subject.save()
