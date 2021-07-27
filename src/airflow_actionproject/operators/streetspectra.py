@@ -581,7 +581,8 @@ class IndividualExportCSVOperator(BaseOperator):
     (Templated) Path to write the output CSV file.
     """
     
-    HEADER = ( 
+    HEADER = (
+            'csv_version', 
             'subject_id',
             'classification_id',
             'started_at',
@@ -621,6 +622,7 @@ class IndividualExportCSVOperator(BaseOperator):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         individual_classifications = hook.get_records('''
             SELECT
+                '1.0',  -- CSV file format export version
                 subject_id,
                 classification_id,
                 started_at,
@@ -671,7 +673,8 @@ class AggregateExportCSVOperator(BaseOperator):
     (Templated) Path to write the output CSV file.
     """
     
-    HEADER = (  
+    HEADER = (
+            'csv_version',  
             'source_label',
             'source_x',
             'source_y',
@@ -707,6 +710,7 @@ class AggregateExportCSVOperator(BaseOperator):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         aggregated_classifications = hook.get_records('''
             SELECT
+                '1.0',  -- CSV file format export version
                 subject_id || '-' || source_id,
                 source_x,
                 source_y,
