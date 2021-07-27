@@ -42,10 +42,6 @@ from airflow_actionproject.hooks.streetspectra import ZooniverseHook
 # Module constants
 # ----------------
 
-"3_Take_an_image_of_a": "https://five.epicollect.net/api/media/action-street-spectra?type=photo&format=entry_original&name=a98ee373-83be-43fa-bd6b-1fc4a445f6cd_1577898066.jpg",
-"4_Illumination_sourc": "",
-"5_Comments": "Roma. Templo de Vespasiano y Tito y Templo de Saturno."
-},
 
 class EC5TransformOperator(BaseOperator):
     """
@@ -72,17 +68,6 @@ class EC5TransformOperator(BaseOperator):
         '3_Take_an_image_of_a': 'url',
         '4_Illumination_sourc': 'spectrum_type',
         '5_Comments'          : 'comment',
-        # New form names
-        '1_Share_your_nick_wi': 'observer', 
-        '2_Location'          : 'location',
-        '3_Take_an_image_of_a': 'url',
-        '4_Observations'      : 'comment',
-        # Old form names
-        '1_Date'              : 'date',
-        '2_Time'              : 'time',
-        '3_Location'          : 'location',
-        '4_Take_an_image_of_a': 'url',
-        '5_Observations'      : 'comment',
     }
     
     template_fields = ("_input_path", "_output_path")
