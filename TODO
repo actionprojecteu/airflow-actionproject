@@ -5,10 +5,6 @@ Short-term
 - Afecyta a varios operadores en la cadena
   y hay que cargarlo como metadata en Zooniverse 
 
-* Quitar el user_id del tratamiento
- => HECHO, SOLO QURDA HACER UN MERGE A 'main'
-
-
 Test cases
 ==========
 0) Epicollect V tienes observaciones desde el mes 2019-09-01
