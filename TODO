@@ -1,15 +1,22 @@
 Short-term
 ==========
 
-* Añadir el nuevo campo 'spectrum' de la lista de Epicollect 5
-- Afecyta a varios operadores en la cadena
-  y hay que cargarlo como metadata en Zooniverse 
+* Recargar todas las obserrvaciones de Street Spectra con Esteban
+* Documentacion de operadores/hooks/callables
+* Workflow 3 no va a cargar clasificaciones a la BD de Mongo
+* Probar la parte de publicar en Zenodo sandbox los dos ficheros (agregado/individual)
+* Ejecutar el Workflow3 completo
+* Field Guide con ejemplos prácticos
+* Rescatar observaciones de pryecto fantasma
+* Esqueleto de deliverable D2.2
+
+* Cargar un nuevo subject set y hacer clasificaciones
+* pedir 5 voluntarios para clasificar
 
 Test cases
 ==========
 0) Epicollect V tienes observaciones desde el mes 2019-09-01
 
-*) ¿que pasa con las clasificaciones anonimas?¿cual es su user id?
 1) Probar qué pasa cuando le damos a 'Next' en todo un subject_set con retirement_count = 1
 
 2) Probar qué pasa cuando le damos a 'Next' con subjects already seen
@@ -23,16 +30,3 @@ Long-term
 ==========
 
 * integrar con un GIS o bien Generacion de mapa en GUAIX como lo hace Jaime
-
-Otras ideas
-===========
-1) Street Spectra APP
-* generar un uuid por cada observacion
-* metadatos similares a epicollect 5
-* en el boton de "repetir"
-  - No subir imagen
-  - en su lugar, añadir "same_as" : uuid de la ultima observacion con imagen
-  - pero si añadir nueva marca de tiempo, coordenadas y nickname
-
-
-

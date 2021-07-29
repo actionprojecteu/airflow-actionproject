@@ -35,21 +35,22 @@ from airflow_actionproject.hooks.epicollect5 import EpiCollect5Hook
 # ----------------
 
 class EC5ExportEntriesOperator(BaseOperator):
-	"""
-	Operator that fetches entries from Epicollect V API.
+	'''
+	Operator that fetches entries from Epicollect V.
+
 	Parameters
 	—————
 	conn_id : str
-	ID of the connection to use to connect to the Epicollect V API. 
+	Aiflow connection id to connect to Epicollect V.
 	output_path : str
-	Path to write the fetched entries to.
+	(Templated) Path to write the fetched entries to.
 	start_date : str
 	(Templated) start date to start fetching entries from (inclusive).
 	Expected format is YYYY-MM-DD (equal to Airflow"s ds formats).
 	end_date : str
 	(Templated) end date to fetching entries up to (exclusive).
 	Expected format is YYYY-MM-DD (equal to Airflow"s ds formats).
-	"""
+	'''
 	
 	template_fields = ("_start_date", "_end_date", "_output_path")
 

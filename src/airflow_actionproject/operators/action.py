@@ -35,73 +35,19 @@ from airflow_actionproject.hooks.action import ActionDatabaseHook
 # Module constants
 # ----------------
 
-class ZooniverseTransformOperator(BaseOperator):
-    """
-    Operator that transforms classifications exported from 
-    Zooniverse API to an ACTION JSON file.
-    
-    Parameters
-    —————
-    input_path : str
-    (Templated) Path to read the input JSON to transform to.
-    output_path : str
-    (Templated) Path to write the output transformed JSON.
-    """
-    
-    template_fields = ("_input_path", "_output_path")
-
-    @apply_defaults
-    def __init__(self, input_path, output_path, project, **kwargs):
-        super().__init__(**kwargs)
-        self._input_path  = input_path
-        self._output_path = output_path
-        self._project     = project
-
-
-    def execute(self, context):
-        self.log.info(f"Transforming Zooniverse classifications from JSON file {self._input_path}")
-        with open(self._input_path) as fd:
-            entries = json.load(fd)
-        result = list(self._zoo_remapper(entries))
-        # Make sure the output directory exists.
-        output_dir = os.path.dirname(self._output_path)
-        os.makedirs(output_dir, exist_ok=True)
-        with open(self._output_path,'w') as fd:
-            json.dump(result, fp=fd, indent=2)
-        self.log.info(f"Transformed Zooniverse classifications to output JSON file {self._output_path}")
-
-    # --------------
-    # Helper methods
-    # --------------
-    def _remap(self, item):
-        # Fixes timestamps format
-        dt = datetime.datetime.strptime(item['created_at'],'%Y-%m-%d %H:%M:%S UTC').replace(microsecond=0)
-        item['created_at'] = dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-        # Delete items not needed
-        # Add extra items
-        item["project"] = self._project
-        item["source"] = "Zooniverse"
-        item["obs_type"] = "classification"
-        return item
-
-
-    def _zoo_remapper(self, entries):
-        '''Map Zooniverse to an ernal, more convenient representation'''
-        # Use generators instead of lists
-        return map(self._remap, entries)
-
 
 
 class ActionUploadOperator(BaseOperator):
-	"""
+	'''
 	Operator that uploads observations into the ACTION database.
+
 	Parameters
 	—————
 	conn_id : str
-	ID of the connection to use to connect to the ACTION database API. 
+	Aiflow connection id to connect to the ACTION database. 
 	(Templated) input_path : str
 	Path to the JSON file with observations.
-	"""
+	'''
 	
 	template_fields = ("_input_path",)
 
@@ -121,12 +67,13 @@ class ActionUploadOperator(BaseOperator):
 
 
 class ActionRangedDownloadOperator(BaseOperator):
-	"""
+	'''
 	Operator that fetches entries from Epicollect V API.
+
 	Parameters
 	—————
 	conn_id : str
-	ID of the connection to use to connect to the Epicollect V API. 
+	Aiflow connection id to connect to Epicollect V. 
 	output_path : str
 	Path to write the fetched entries to.
 	start_date : str
@@ -135,7 +82,9 @@ class ActionRangedDownloadOperator(BaseOperator):
 	end_date : str
 	(Templated) end date to fetching entries up to (exclusive).
 	Expected format is YYYY-MM-DD (equal to Airflow"s ds formats).
-	"""
+	obs_type : str
+	Observation type, either "observation" or "classification". Defaults to "observation"
+	'''
 	
 	template_fields = ("_start_date", "_end_date", "_output_path")
 
@@ -172,12 +121,14 @@ class ActionRangedDownloadOperator(BaseOperator):
 
 
 class ActionDownloadFromStartDateOperator(BaseOperator):
-	"""
-	Operator that fetches entries from Epicollect V API.
+	'''
+	Operator that fetches project entries from the ACTION database starting 
+	from a given start date. Entries may be either observations or classifications.
+
 	Parameters
 	—————
 	conn_id : str
-	ID of the connection to use to connect to the Epicollect V API. 
+	Aiflow connection id to connect to the ACTION database.
 	output_path : str
 	Path to write the fetched entries to.
 	start_date : str
@@ -186,7 +137,13 @@ class ActionDownloadFromStartDateOperator(BaseOperator):
 	end_date : str
 	(Templated) end date to fetching entries up to (exclusive).
 	Expected format is YYYY-MM-DD (equal to Airflow"s ds formats).
-	"""
+	project : str
+	Project name
+	n_entries : str
+	Number of entries to download
+	obs_type : str
+	Observation type, either "observation" or "classification". Defaults to "observation"
+	'''
 	
 	template_fields = ("_start_date", "_output_path")
 
@@ -229,24 +186,28 @@ class ActionDownloadFromStartDateOperator(BaseOperator):
 
 
 class ActionDownloadFromVariableDateOperator(BaseOperator):
-	"""
-	Operator that fetches N observations from the ACTION database
-	starting from a date specified by an Airflow Variable name.
-	After fetching that many observations, it updates the variable
-	with the timestamp of the next observation pending to read.
+	'''
+	Operator that fetches project entries from the ACTION database starting 
+	from a given start date. Entries may be either observations or classifications.
+	The start date is managed as an Airflow Variable.
+	The variable is updated with the next available start date for the project.
+	
 	Parameters
 	—————
 	conn_id : str
-	ID of the connection to use to connect to the Epicollect V API. 
+	Aiflow connection id to connect to the ACTION database. 
 	output_path : str
-	Path to write the fetched entries to.
+	(Templated) Path to write the fetched entries to.
 	variable_name : str
-	Name of the Airflow Variable that contaoins the start timestamp.
+	Airflow Variable name that controlling the start date as a UTC timestamp 'YYYY-MM-DDTHH:MM:SS.SSSSSZ'.
 	Expected format is YYYY-MM-DD (equal to Airflow"s ds formats).
-	end_date : str
-	(Templated) end date to fetching entries up to (exclusive).
-	Expected format is YYYY-MM-DD (equal to Airflow"s ds formats).
-	"""
+	project : str
+	Project name
+	n_entries : str
+	Number of entries to download
+	obs_type : str
+	Observation type, either "observation" or "classification". Defaults to "observation"
+	'''
 	
 	
 	template_fields = ("_output_path",)

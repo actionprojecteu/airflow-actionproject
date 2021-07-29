@@ -114,8 +114,9 @@ class ActionDatabaseHook(BaseHook):
 
 
 	def upload(self, observations):
-		"""
+		'''
 		Fetches entries from Epicollect V between given start/end date.
+
 		Parameters
 		—————
 		project_slug : str
@@ -129,7 +130,7 @@ class ActionDatabaseHook(BaseHook):
 		batch_size : int
 		Page size to fetch from the API. Larger values
 		mean less requests, but more data transferred per request.
-		"""
+		'''
 		session, url, page_size, delay = self.get_conn()
 		self.log.info(f"Uploading {len(observations)} observations to ACTION Database")
 		for observation in observations:
@@ -140,9 +141,10 @@ class ActionDatabaseHook(BaseHook):
 
 
 	def download(self, start_date, end_date, project, obs_type, n_entries):
-		"""
+		'''
 		Fetches entries from ACTION database for a given project between given start/end date 
 		or up to n_entries, whichever occurs sooner.
+		
 		Parameters
 		—————
 		project_slug : str
@@ -156,7 +158,7 @@ class ActionDatabaseHook(BaseHook):
 		batch_size : int
 		Page size to fetch from the API. Larger values
 		mean less requests, but more data transferred per request.
-		"""
+		'''
 		session, url, page_size, delay = self.get_conn()
 		self.log.info(f"Getting from ACTION Database {n_entries} {obs_type}(s) for {project} from {start_date} to {end_date}")
 		params = {

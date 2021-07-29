@@ -31,10 +31,10 @@ from airflow.providers.sqlite.operators.sqlite import SqliteOperator
 # ----------------------
 
 from airflow_actionproject.operators.epicollect5   import EC5ExportEntriesOperator
-from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperator, ZooniverseDeltaOperator
+from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperator, ZooniverseDeltaOperator, ZooniverseTransformOperator
 from airflow_actionproject.operators.zenodo        import ZenodoPublishDatasetOperator
 from airflow_actionproject.operators.action        import ActionDownloadFromVariableDateOperator, ActionUploadOperator
-from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator, ZooniverseTransformOperator
+from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooImportOperator, ZooniverseTransformOperator
 from airflow_actionproject.callables.zooniverse    import zooniverse_manage_subject_sets
 from airflow_actionproject.callables.action        import check_number_of_entries
 
@@ -183,7 +183,7 @@ download_from_action = ActionDownloadFromVariableDateOperator(
     dag            = streetspectra_zoo_import_dag,
 )
 
-upload_new_subject_set = ZooniverseImportOperator(
+upload_new_subject_set = ZooImportOperator(
     task_id         = "upload_new_subject_set",
     conn_id         = "streetspectra-zooniverse-test",
     input_path      = "/tmp/zooniverse/streetspectra/action-{{ds}}.json", 

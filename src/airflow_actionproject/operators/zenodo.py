@@ -76,12 +76,35 @@ class NewVersionOfDraftError(ValueError):
 # -------
 
 class ZenodoPublishDatasetOperator(BaseOperator):
-	"""
-	Operator that Publishes a research object to Zenodo.
+	'''
+	Operator that Publishes a dataset to Zenodo.
+
 	Parameters
 	—————
+	conn_id : str
+	Aiflow connection id to connect to Zenodo.
+	file_path : str
+	(Templated) Dataset file path.
+	title : str
+	Dataset title.
+	description : str
+	Dataset brief description.
+	version : str
+	(Version) reseach object version. May be templated (i.e YY.MM).
+	creators : sequence
+	Sequence of dictionaries cointaining each "<surname, name>" dataset maintainers under the "name" key.
+	[{'name': "Zamorano, Jaime"}, {'name': "Gonzalez, Rafael"}]
+	communities : sequence
+	Sequence of dictionaries cointaining each "<title>" under the "title" key and optionally "<ident>" under "id" key.
+	[{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project"}]
+	contributors : sequence
+	Sequence of additional contributors as data collectors.  Same format as the creators parameter.
+	status : str
+	Publication status. Either 'draft' or 'published'. Defaults to 'published'
+	access_rights : str
+	Dataset access rights. Defaults to 'open'
  
-	"""
+	'''
 	
 	template_fields = ("_version", "_file_path")
 

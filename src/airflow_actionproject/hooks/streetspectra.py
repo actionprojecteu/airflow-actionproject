@@ -22,7 +22,7 @@ from panoptes_client import Panoptes, Project, Workflow, SubjectSet, Subject, Su
 # local imports
 # -------------
 
-from airflow_actionproject.hooks.zooniverse import ZooniverseHook as ZooniverseBaseHook
+from airflow_actionproject.hooks.zooniverse import ZooniverseHook
 
 # -----------------------
 # Module global variables
@@ -33,8 +33,8 @@ from airflow_actionproject.hooks.zooniverse import ZooniverseHook as ZooniverseB
 # Module constants
 # ----------------
 
-# This ZooniverseHook is specific to StreetSpectra because of the added metadata in subjects
-class ZooniverseHook(ZooniverseBaseHook):
+# This Zooniverse hook is specific to StreetSpectra because of the specific added metadata in subjects
+class ZooSpectraHook(ZooniverseHook):
 
 	EPICOLLECT5_SOURCE = "Epicollect5"
 

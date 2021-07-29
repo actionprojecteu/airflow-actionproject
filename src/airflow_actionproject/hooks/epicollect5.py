@@ -101,7 +101,7 @@ class EpiCollect5Hook(BaseHook):
 
 
 	def get_entries(self, start_date, end_date, page_size=50):
-		"""
+		'''
 		Fetches entries from Epicollect V between given start/end date.
 		Parameters
 		—————
@@ -116,7 +116,7 @@ class EpiCollect5Hook(BaseHook):
 		batch_size : int
 		Page size to fetch from the API. Larger values
 		mean less requests, but more data transferred per request.
-		"""
+		'''
 		# Corrects end time by removing one day (fixing loop boundary problem)
 		end_date = (datetime.datetime.strptime(end_date, "%Y-%m-%d") - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 		session, url, page_size = self.get_conn()

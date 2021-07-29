@@ -29,7 +29,7 @@ from airflow.providers.sqlite.hooks.sqlite import SqliteHook
 # ----------------
 
 def check_new_subjects(conn_id, true_task_id, false_task_id):
-	'''To use with ShortCircuitOperator'''
+	'''Callable to use with BranchOperator'''
 	hook = SqliteHook(sqlite_conn_id=conn_id)
 	new_subjects = hook.get_first('''
             SELECT COUNT (DISTINCT subject_id)

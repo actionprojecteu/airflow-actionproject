@@ -31,11 +31,11 @@ from airflow.providers.sqlite.operators.sqlite import SqliteOperator
 # ----------------------
 
 from airflow_actionproject.operators.epicollect5   import EC5ExportEntriesOperator
-from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperator, ZooniverseDeltaOperator
+from airflow_actionproject.operators.zooniverse    import ZooniverseExportOperator, ZooniverseDeltaOperator, ZooniverseTransformOperator
 from airflow_actionproject.operators.zenodo        import ZenodoPublishDatasetOperator
-from airflow_actionproject.operators.action        import ZooniverseTransformOperator, ActionDownloadFromVariableDateOperator, ActionUploadOperator
-from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooniverseImportOperator
-from airflow_actionproject.operators.streetspectra import ClassificationsOperator, AggregateOperator, AggregateExportCSVOperator, IndividualExportCSVOperator
+from airflow_actionproject.operators.action        import ActionDownloadFromVariableDateOperator, ActionUploadOperator
+from airflow_actionproject.operators.streetspectra import EC5TransformOperator, ZooImportOperator
+from airflow_actionproject.operators.streetspectra import PreprocessClassifOperator, AggregateOperator, AggregateCSVExportOperator, IndividualCSVExportOperator
 from airflow_actionproject.callables.zooniverse    import zooniverse_manage_subject_sets
 from airflow_actionproject.callables.action        import check_number_of_entries
 from airflow_actionproject.callables.streetspectra import check_new_subjects
@@ -186,7 +186,7 @@ download_from_action = ActionDownloadFromVariableDateOperator(
     dag            = streetspectra_zoo_import_dag,
 )
 
-upload_new_subject_set = ZooniverseImportOperator(
+upload_new_subject_set = ZooImportOperator(
     task_id         = "upload_new_subject_set",
     conn_id         = "streetspectra-zooniverse-test",
     input_path      = "/tmp/zooniverse/streetspectra/action-{{ds}}.json", 
@@ -248,7 +248,7 @@ streetspectra_zoo_export_dag = DAG(
 # Tasks
 # -----
 
-# Perform the whole Zoonive4rse export from the beginning of the project
+# Perform the whole Zooniverse export from the beginning of the project
 export_classifications = ZooniverseExportOperator(
     task_id     = "export_classifications",
     conn_id     = "streetspectra-zooniverse-test",
@@ -271,8 +271,7 @@ only_new_classifications = ZooniverseDeltaOperator(
 )
 
 # Transforms the new Zooniverse classifcations file in to a JSON
-# file suitable to be loaded into the ACTION database
-# as 'classifications'
+# file suitable to be loaded into the ACTION database as 'classifications'
 # This is valid for any project that uses the ACTION database API
 transform_classfications = ZooniverseTransformOperator(
     task_id      = "transform_classfications",
@@ -282,21 +281,11 @@ transform_classfications = ZooniverseTransformOperator(
     dag          = streetspectra_zoo_export_dag,
 )
 
-# Loads the transformed file into the ACTION database
-# using the ACTION database API
-# This is valid for any project that uses the ACTION database API
-load_zoo_classifications = ActionUploadOperator(
-    task_id    = "load_zoo_classifications",
-    conn_id    = "streetspectra-action-database",
-    input_path = "/tmp/zooniverse/transformed-subset-{{ds}}.json",
-    dag        = streetspectra_zoo_export_dag,
-)
-
-# In paralel, writes the transformed file into a StreetSpectra
-# relational database
+# Preprocess the transformed file into a StreetSpectra
+# relational database, getting only the most relevant information
 # This is valid only for StreetSpectra
-streetspectra_classifications = ClassificationsOperator(
-    task_id    = "streetspectra_classifications",
+preprocess_classifications = PreprocessClassifOperator(
+    task_id    = "preprocess_classifications",
     conn_id    = "streetspectra-temp-db",
     input_path = "/tmp/zooniverse/transformed-subset-{{ds}}.json",
     dag        = streetspectra_zoo_export_dag,
@@ -332,7 +321,7 @@ aggregate_classifications = AggregateOperator(
 # Aggregates combied clssifications into a single value for every light source
 # examined by Zooniverse users
 # This is valid only for StreetSpectra
-export_aggregated_csv = AggregateExportCSVOperator(
+export_aggregated_csv = AggregateCSVExportOperator(
     task_id     = "export_aggregated_csv",
     conn_id     = "streetspectra-temp-db",
     output_path = "/tmp/zooniverse/streetspectra-aggregated.csv",
@@ -342,7 +331,7 @@ export_aggregated_csv = AggregateExportCSVOperator(
 # Aggregates combied clssifications into a single value for every light source
 # examined by Zooniverse users
 # This is valid only for StreetSpectra
-export_individual_csv = IndividualExportCSVOperator(
+export_individual_csv = IndividualCSVExportOperator(
     task_id     = "export_individual_csv",
     conn_id     = "streetspectra-temp-db",
     output_path = "/tmp/zooniverse/streetspectra-individual.csv",
@@ -389,9 +378,9 @@ clean_up_classif_files = BashOperator(
 # Task dependencies
 # -----------------
 
-export_classifications >> only_new_classifications >> transform_classfications >> load_zoo_classifications
-load_zoo_classifications >> streetspectra_classifications 
-streetspectra_classifications >> check_new_spectra >> [aggregate_classifications, dummy_task]
-aggregate_classifications >> export_aggregated_csv >> export_individual_csv >> publish_individual
-publish_individual >> publish_aggregated
-[publish_aggregated, dummy_task] >> clean_up_classif_files
+export_classifications >> only_new_classifications >> transform_classfications >> preprocess_classifications
+preprocess_classifications >> check_new_spectra >> [aggregate_classifications, dummy_task]
+aggregate_classifications >> export_aggregated_csv >> publish_aggregated
+# We avoid parallel tasks because SQlite does not allow concurrent usage
+publish_aggregated >> export_individual_csv >> publish_individual
+[publish_individual, dummy_task] >> clean_up_classif_files

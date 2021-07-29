@@ -31,7 +31,7 @@ from airflow_actionproject.hooks.action import ActionDatabaseHook
 
 
 def check_number_of_entries(conn_id, start_date, n_entries, project, true_task_id, false_task_id, obs_type='observation'):
-	'''To use with BranchPythonOperator'''
+	'''Callable to use with BranchPythonOperator'''
 	next_task = false_task_id
 	with ActionDatabaseHook(conn_id) as hook:
 		observations = list(

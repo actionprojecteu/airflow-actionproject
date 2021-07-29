@@ -30,8 +30,8 @@ from airflow.providers.sqlite.hooks.sqlite import SqliteHook
 # local imports
 # -------------
 
-# This hook knows how to insert StreetSpectra metadata o subjects
-from airflow_actionproject.hooks.streetspectra import ZooniverseHook
+# This hook knows how to insert StreetSpectra metadata on subjects
+from airflow_actionproject.hooks.streetspectra import ZooSpectraHook
 
 
 # -----------------------
@@ -44,9 +44,9 @@ from airflow_actionproject.hooks.streetspectra import ZooniverseHook
 
 
 class EC5TransformOperator(BaseOperator):
-    """
-    Operator that transforms entries exported from 
-    Epicollect V API to ACTION  StreetSpectra JSON.
+    '''
+    Operator that transforms entries exported from Epicollect V 
+    to an specific ACTION StreetSpectra JSON file.
     
     Parameters
     —————
@@ -54,9 +54,9 @@ class EC5TransformOperator(BaseOperator):
     (Templated) Path to read the input JSON to transform to.
     output_path : str
     (Templated) Path to write the output transformed JSON.
-    """
+    '''
 
-    # This mapping is unique to StreetSpectra
+    # This mapping is unique to EC5 StreetSpectra project.
     NAME_MAP = {
         'ec5_uuid'            : 'id',
         'created_at'          : 'created_at',
@@ -130,10 +130,25 @@ class EC5TransformOperator(BaseOperator):
 
 # --------------------------------------------------------------
 # This class is specific to StreetSpectra because 
-# this particular ZooniverseHook is specific to StreetSpectra
+# this particular ZooSpectraHook is specific to StreetSpectra
 # --------------------------------------------------------------
 
-class ZooniverseImportOperator(BaseOperator):
+class ZooImportOperator(BaseOperator):
+    '''
+    Operator that uploads StreetSpectra observations to Zooniverse
+    for citizen scientist to classify.
+    Observations are contained in an input JOSN file previously 
+    downloaded from the ACTION database. 
+    
+    Parameters
+    —————
+    conn_id : str
+    Aiflow connection id to connect to Zooniverse.
+    input_path : str
+    (Templated) Path to read the input JSON to transform to.
+    output_path : str
+    (Templated) Path to write the output transformed JSON.
+    '''
 
     template_fields = ("_input_path", "_display_name")
 
@@ -149,25 +164,27 @@ class ZooniverseImportOperator(BaseOperator):
         self.log.info(f"Uploading observations to Zooniverse from {self._input_path}")
         with open(self._input_path) as fd:
             subjects_metadata = json.load(fd)
-        with ZooniverseHook(self._conn_id) as hook:
+        with ZooSpectraHook(self._conn_id) as hook:
             hook.add_subject_set(self._display_name, subjects_metadata)
 
 
 
 
-class ClassificationsOperator(BaseOperator):
-    """
-    Operator that extracts a subset of Zooniverse export file
-    relevant to StreetSpectra and writes into a handy, 
-    simplified classification table.
+class PreprocessClassifOperator(BaseOperator):
+    '''
+    Operator that extracts a subset of StreetSpectra relevant information 
+    from a Zooniverse export file and writes into a handy, simplified 
+    classification SQLite table for further processing.
     
     Parameters
     —————
-    input_path : str
-    (Templated) Path to read the transformed input JSON file.
     conn_id : str
-    SQLite connection identifier for the output table
-    """
+    Airflow connection id to an internal SQLite database where the individual 
+    classification analysis takes place.
+    input_path : str
+    (Templated) Path to read the Zooniverse transformed input JSON file.
+    
+    '''
     
     template_fields = ("_input_path",)
 
@@ -180,7 +197,7 @@ class ClassificationsOperator(BaseOperator):
     }
 
     @apply_defaults
-    def __init__(self, input_path, conn_id, **kwargs):
+    def __init__(self, conn_id, input_path, **kwargs):
         super().__init__(**kwargs)
         self._input_path  = input_path
         self._conn_id     = conn_id
@@ -315,18 +332,20 @@ class ClassificationsOperator(BaseOperator):
 
 
 class AggregateOperator(BaseOperator):
-    """
-    Operator that aggregates individual classifications form users
-    into a combined classification, for each source identridfied
-    in a given Zooniverse subject. 
+    '''
+    Operator that aggregates individual classifications from users
+    into a combined classification, for each source identified
+    in a given Zooniverse subject. All this is handled in an internal
+    SQLite database
     
     Parameters
     —————
     conn_id : str
-    SQLite connection identifier for the output table
-    """
+    Airflow connection id to an internal SQLite database where the individual 
+    classification analysis takes place.
+    '''
 
-    RADIUS = 10
+    RADIUS = 10  # light source dispersion radius in pixels
     CATEGORIES = ('LED','HPS','LPS','MV','MH', None)
 
     @apply_defaults
@@ -564,18 +583,21 @@ class AggregateOperator(BaseOperator):
         if subjects:
             self._update(final_classifications, hook)
 
-class IndividualExportCSVOperator(BaseOperator):
-    """
+
+class IndividualCSVExportOperator(BaseOperator):
+    '''
     Operator that export raw individual StreetSpectra classifications 
-    into a CSV file
+    into a CSV file ready to be uploaded to Zenodo. There is a document describing
+    this file format.
     
     Parameters
     —————
     conn_id : str
-    SQLite connection identifier for the output table
+    Airflow connection id to an internal SQLite database where the individual 
+    classification analysis takes place.
     output_path : str
-    (Templated) Path to write the output CSV file.
-    """
+    (Templated) Path to write the individual classifications in CSV format.
+    '''
     
     HEADER = (
             'csv_version', 
@@ -656,18 +678,21 @@ class IndividualExportCSVOperator(BaseOperator):
    
 
 
-class AggregateExportCSVOperator(BaseOperator):
-    """
+class AggregateCSVExportOperator(BaseOperator):
+    '''
     Operator that export aggregated StreetSpectra classifications 
-    into a CSV file
+    into a CSV file ready to be uploaded to Zenodo. There is a document describing
+    this file format.
+
     
     Parameters
     —————
     conn_id : str
-    SQLite connection identifier for the output table
+    Airflow connection id to an internal SQLite database where the individual 
+    classification analysis takes place.
     output_path : str
-    (Templated) Path to write the output CSV file.
-    """
+    (Templated) Path to write the aggregated classifications in CSV format.
+    '''
     
     HEADER = (
             'csv_version',  

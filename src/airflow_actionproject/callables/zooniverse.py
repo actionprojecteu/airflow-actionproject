@@ -35,7 +35,7 @@ from airflow_actionproject.hooks.zooniverse import ZooniverseHook
 
 
 def zooniverse_manage_subject_sets(conn_id, threshold):
-	'''To use with ShortCircuitOperator'''
+	'''Callable to use with ShortCircuitOperator'''
 	complete = False
 	with ZooniverseHook(conn_id) as hook:
 		workflows_summary = hook.get_workflows_summary()

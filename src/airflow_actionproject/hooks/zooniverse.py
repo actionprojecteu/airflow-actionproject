@@ -109,7 +109,7 @@ class ZooniverseHook(BaseHook):
 		self.close()
 
 	def get_workflows_summary(self):
-		"""
+		'''
 		Get workflows summary completion status and per active subject set completion status.
 		Parameters
 		—————
@@ -129,7 +129,7 @@ class ZooniverseHook(BaseHook):
 				{'id': '93295', 'display_name': 'Street Spectra Test Subject Set 2', 'subjects_count': 5, 'retired_count': 3,},
 			]
 		}]
-		"""
+		'''
 		panoptes_client, project   = self.get_conn()
 		workflows = list()
 		for workflow in project.links.workflows:
