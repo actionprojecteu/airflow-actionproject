@@ -299,16 +299,18 @@ check_new_spectra = BranchPythonOperator(
     op_kwargs = {
         "conn_id"       : "streetspectra-temp-db",
         "true_task_id"  : "aggregate_classifications",
-        "false_task_id" : "dummy_task",
+        "false_task_id" : "skip_to_end",
     },
     dag           = streetspectra_zoo_export_dag
 )
 
 # needed for branching
-dummy_task = DummyOperator(
-    task_id    = "dummy_task",
+skip_to_end = DummyOperator(
+    task_id    = "skip_to_end",
     dag        = streetspectra_zoo_export_dag,
 )
+
+
 
 # Check new spectra to be classified and aggregated
 # This is valid only for StreetSpectra
@@ -340,13 +342,13 @@ export_individual_csv = IndividualCSVExportOperator(
 
 # Publish the aggregated dataset to Zenodo
 # This operator is valid for anybody wishing to publish datasets to Zenodo
-publish_aggregated = ZenodoPublishDatasetOperator(
-    task_id     = "publish_aggregated",
+publish_aggregated_csv = ZenodoPublishDatasetOperator(
+    task_id     = "publish_aggregated_csv",
     conn_id     = "streetspectra-zenodo-sandbox",
     title       = "Street Spectra aggregated classifications",
     file_path   = "/tmp/zooniverse/streetspectra-aggregated.csv",
     description = "CSV file containing aggregated classifications for light sources data and metadata.",
-    version     = '{{ execution_date.strftime("%Y.%m")}}',
+    version     = '{{ execution_date.strftime("%y.%m")}}',
     creators    = [{'name': "Zamorano, Jaime"}, {'name': "Gonzalez, Rafael"}],
     communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project"}],
     dag         = streetspectra_zoo_export_dag,
@@ -354,16 +356,22 @@ publish_aggregated = ZenodoPublishDatasetOperator(
 
 # Publish the individual dataset to Zenodo
 # This operator is valid for anybody wishing to publish datasets to Zenodo
-publish_individual = ZenodoPublishDatasetOperator(
-    task_id     = "publish_individual",
+publish_individual_csv = ZenodoPublishDatasetOperator(
+    task_id     = "publish_individual_csv",
     conn_id     = "streetspectra-zenodo-sandbox",
-    title       = "Street Spectra aggregated classifications",
+    title       = "Street Spectra individual classifications",
     file_path   = "/tmp/zooniverse/streetspectra-individual.csv",
     description = "CSV file containing individual classifications for subjects data and metadata.",
-    version     = '{{ execution_date.strftime("%Y.%m")}}',
+    version     = '{{ execution_date.strftime("%y.%m")}}',
     creators    = [{'name': "Zamorano, Jaime"}, {'name': "Gonzalez, Rafael"}],
     communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project"}],
     dag         = streetspectra_zoo_export_dag,
+)
+
+# needed for parallel export+publish operations
+join_published = DummyOperator(
+    task_id    = "join_published",
+    dag        = streetspectra_zoo_export_dag,
 )
 
 # Clean up temporary files
@@ -379,8 +387,9 @@ clean_up_classif_files = BashOperator(
 # -----------------
 
 export_classifications >> only_new_classifications >> transform_classfications >> preprocess_classifications
-preprocess_classifications >> check_new_spectra >> [aggregate_classifications, dummy_task]
-aggregate_classifications >> export_aggregated_csv >> publish_aggregated
-# We avoid parallel tasks because SQlite does not allow concurrent usage
-publish_aggregated >> export_individual_csv >> publish_individual
-[publish_individual, dummy_task] >> clean_up_classif_files
+preprocess_classifications >> check_new_spectra >> [aggregate_classifications, skip_to_end]
+aggregate_classifications >> [export_aggregated_csv, export_individual_csv]
+export_aggregated_csv >> publish_aggregated_csv
+export_individual_csv >> publish_individual_csv
+[publish_aggregated_csv, publish_individual_csv] >> join_published
+[join_published, skip_to_end] >> clean_up_classif_files
