@@ -151,23 +151,23 @@ streetspectra-zenodo
 * The `extra` field contains the HTTP page size and the transactions per second rate limit for search requests.
 
 
-### Temporary database to deduplicate Zooniverse exports and other things
+### Auxiliary database to de-duplicate Zooniverse exports and perform classifications
 
 ```bash
 airflow connections add \
 --conn-type sqlite \
 --conn-host  "/home/rafa/airflow/extra/streetspectra.db" \
---conn-description "Connection to StreetSpectra temporary SQLite database" \
-streetspectra-temp-db
+--conn-description "Connection to StreetSpectra SQLite database" \
+streetspectra-db
 ```
 
-# Creates the temporary database with the actiontool
+# Creates the auxiliary database with the actiontool
 ```bash
 actiontool database install streetspectra /home/rafa/airflow/extra
 ```
 ## Airflow Variables
 
-This variable keeps track of the next observation of the database to be read
+This variable keeps track of the next observation of the ACTION database to be read
 
 ```bash
 airflow variables set streetspectra_read_tstamp "2000-01-01T00:00:00.000Z"

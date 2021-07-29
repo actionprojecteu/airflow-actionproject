@@ -264,7 +264,7 @@ export_classifications = ZooniverseExportOperator(
 # This valid for any Zooniverse project
 only_new_classifications = ZooniverseDeltaOperator(
     task_id       = "only_new_classifications",
-    conn_id       = "streetspectra-temp-db",
+    conn_id       = "streetspectra-db",
     input_path    = "/tmp/zooniverse/complete-{{ds}}.json",
     output_path   = "/tmp/zooniverse/subset-{{ds}}.json",
     dag           = streetspectra_zoo_export_dag,
@@ -286,7 +286,7 @@ transform_classfications = ZooniverseTransformOperator(
 # This is valid only for StreetSpectra
 preprocess_classifications = PreprocessClassifOperator(
     task_id    = "preprocess_classifications",
-    conn_id    = "streetspectra-temp-db",
+    conn_id    = "streetspectra-db",
     input_path = "/tmp/zooniverse/transformed-subset-{{ds}}.json",
     dag        = streetspectra_zoo_export_dag,
 )
@@ -297,7 +297,7 @@ check_new_spectra = BranchPythonOperator(
     task_id         = "check_new_spectra",
     python_callable = check_new_subjects,
     op_kwargs = {
-        "conn_id"       : "streetspectra-temp-db",
+        "conn_id"       : "streetspectra-db",
         "true_task_id"  : "aggregate_classifications",
         "false_task_id" : "skip_to_end",
     },
@@ -316,7 +316,7 @@ skip_to_end = DummyOperator(
 # This is valid only for StreetSpectra
 aggregate_classifications = AggregateOperator(
     task_id    = "aggregate_classifications",
-    conn_id    = "streetspectra-temp-db",
+    conn_id    = "streetspectra-db",
     dag        = streetspectra_zoo_export_dag,
 )
 
@@ -325,7 +325,7 @@ aggregate_classifications = AggregateOperator(
 # This is valid only for StreetSpectra
 export_aggregated_csv = AggregateCSVExportOperator(
     task_id     = "export_aggregated_csv",
-    conn_id     = "streetspectra-temp-db",
+    conn_id     = "streetspectra-db",
     output_path = "/tmp/zooniverse/streetspectra-aggregated.csv",
     dag         = streetspectra_zoo_export_dag,
 )
@@ -335,7 +335,7 @@ export_aggregated_csv = AggregateCSVExportOperator(
 # This is valid only for StreetSpectra
 export_individual_csv = IndividualCSVExportOperator(
     task_id     = "export_individual_csv",
-    conn_id     = "streetspectra-temp-db",
+    conn_id     = "streetspectra-db",
     output_path = "/tmp/zooniverse/streetspectra-individual.csv",
     dag         = streetspectra_zoo_export_dag,
 )
@@ -378,7 +378,7 @@ join_published = DummyOperator(
 clean_up_classif_files = BashOperator(
     task_id      = "clean_up_classif_files",
     trigger_rule = "none_failed",    # For execution of just one preceeding branch only
-    bash_command = "rm /tmp/zooniverse/complete-{{ds}}.json; rm /tmp/zooniverse/subset-{{ds}}.json; rm /tmp/zooniverse/transformed-subset-{{ds}}.json",
+    bash_command = "/tmp/zooniverse/*.csv rm /tmp/zooniverse/complete-{{ds}}.json; rm /tmp/zooniverse/subset-{{ds}}.json; rm /tmp/zooniverse/transformed-subset-{{ds}}.json",
     dag          = streetspectra_zoo_export_dag,
 )
 
