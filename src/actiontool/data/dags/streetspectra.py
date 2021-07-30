@@ -148,7 +148,7 @@ load_ec5_old = ActionUploadOperator(
 # -----------------
 
 export_ec5_observations >> transform_ec5_observations >> load_ec5_observations >> clean_up_ec5_files
-export_ec5_old >> transform_ec5_old >> load_ec5_old >> clean_up_ec5_files
+export_ec5_old          >> transform_ec5_old          >> load_ec5_old          >> clean_up_ec5_files
 
 # ===========================
 # Zooniverse Feeding Workflow
