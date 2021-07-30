@@ -59,8 +59,20 @@ airflow connections add \
 --conn-port 443 \
 --conn-schema "action-street-spectra" \
 --conn-extra '{"page_size": 10}' \
---conn-description "Connection to Epicollect V mobile gathering platform" \
+--conn-description "Connection to Epicollect V StreetSpectra" \
 streetspectra-epicollect5
+```
+This connection below is for backwards compatibility
+
+```bash
+airflow connections add \
+--conn-type https \
+--conn-host five.epicollect.net \
+--conn-port 443 \
+--conn-schema "street-spectra" \
+--conn-extra '{"page_size": 10}' \
+--conn-description "Connection to Epicollect V old StreetSpectra project" \
+oldspectra-epicollect5
 ```
 
 * The `schema` field contains the specific project slug (URL fragment) for the given Epicollect 5 URL.

@@ -68,6 +68,12 @@ class EC5TransformOperator(BaseOperator):
         '3_Take_an_image_of_a': 'url',
         '4_Illumination_sourc': 'spectrum_type',
         '5_Comments'          : 'comment',
+        # Old form names from old street-spectra project
+        '1_Date'              : 'date',
+        '2_Time'              : 'time',
+        '3_Location'          : 'location',
+        '4_Take_an_image_of_a': 'url',
+        '5_Observations'      : 'comment',
     }
     
     template_fields = ("_input_path", "_output_path")
