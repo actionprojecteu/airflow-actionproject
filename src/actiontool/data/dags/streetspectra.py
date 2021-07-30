@@ -118,11 +118,37 @@ clean_up_ec5_files = BashOperator(
     dag        = streetspectra_collect_dag,
 )
 
+# Old StreetSpectra Epicollect V project
+# included for compatibilty only
+export_ec5_old = EC5ExportEntriesOperator(
+    task_id      = "export_ec5_old",
+    conn_id      = "oldspectra-epicollect5",
+    start_date   = "{{ds}}",
+    end_date     = "{{next_ds}}",
+    output_path  = "/tmp/ec5/street-spectra/old-{{ds}}.json",
+    dag          = streetspectra_collect_dag,
+)
+
+transform_ec5_old = EC5TransformOperator(
+    task_id      = "transform_ec5_old",
+    input_path   = "/tmp/ec5/street-spectra/old-{{ds}}.json",
+    output_path  = "/tmp/ec5/street-spectra/old-transformed-{{ds}}.json",
+    dag          = streetspectra_collect_dag,
+)
+
+load_ec5_old = ActionUploadOperator(
+    task_id    = "load_ec5_old",
+    conn_id    = "streetspectra-action-database",
+    input_path = "/tmp/ec5/street-spectra/old-transformed-{{ds}}.json",
+    dag        = streetspectra_collect_dag,
+)
+
 # -----------------
 # Task dependencies
 # -----------------
 
 export_ec5_observations >> transform_ec5_observations >> load_ec5_observations >> clean_up_ec5_files
+export_ec5_old >> transform_ec5_old >> load_ec5_old >> clean_up_ec5_files
 
 # ===========================
 # Zooniverse Feeding Workflow
