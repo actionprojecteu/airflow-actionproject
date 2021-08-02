@@ -3,7 +3,7 @@
 This file describes the needed provisioning actions for Street Spectra
 
 ***Prerequisite***: Python package `airflow-actionproject` installed 
-in the same virtual envoironment where `apache-airflow` is installed.
+in the same virtual environment where `apache-airflow` is installed.
 
 There are three workflows (DAGs) to execute for StreetSpectra:
 
@@ -34,6 +34,7 @@ streetspectra-epicollect5
 * The `schema` field contains the specific project slug (URL fragment) for the given Epicollect 5 URL.
 * The `extra` field contains the HTTP page size for downloads.
 
+This new connection below is created to recover observations form an old StreetSpectra Epicollect 5 project
 
 ```bash
 airflow connections add \
@@ -41,7 +42,7 @@ airflow connections add \
 --conn-host five.epicollect.net \
 --conn-port 443 \
 --conn-schema "street-spectra" \
---conn-extra '{"page_size": 10}' \
+--conn-extra '{"page_size": 100}' \
 --conn-description "Connection to Epicollect V old StreetSpectra project" \
 oldspectra-epicollect5
 ```
@@ -85,7 +86,7 @@ streetspectra-zooniverse
 
 The `schema` field contains the specific project slug (URL fragment) for the given Zooniverse project (not counting the login slug).
 
-Optionally, we can have an additional tetsing project, whose connection must also be created:
+Optionally, we can have an additional testing project, whose connection must also be created:
 
 ```bash
 airflow connections add \
@@ -102,21 +103,23 @@ streetspectra-zooniverse-test
 2. An Airflow variable
 
 This variable keeps track of the next observation of the ACTION database to be read.
-It has to be initialized to a past value before StreetSpectra project was launched.
+It has to be initialized to a distant past value, before StreetSpectra project was launched.
 
 ```bash
 airflow variables set streetspectra_read_tstamp "2000-01-01T00:00:00.000Z"
 ```
+
 3. An operator email address
 
-As part of this workflow, some emails may be sent. You need to have an email account ready 
+As part of this workflow, some emails may be sent (using the `EmailOperator`). You need to have an email account ready 
 and also configure Airflow's SMTP capabilities. See Stack's overflow [How to set up airflow for sending emails.](https://stackoverflow.com/questions/51829200/how-to-set-up-airflow-send-email)
+
 
 # Aggregation and publication workflow
 
 In addition to the items mentioned in the [Zooniverse feeding workflow](#zooniverse-feeding-workflow), the following items must be provisioned:
 
-1.  SQlite classification database creation
+1.  SQLite classification database creation
 
 
 Using the `actiontool` command installed as par of the `airflow-actionproject` Python package.
@@ -125,17 +128,28 @@ Using the `actiontool` command installed as par of the `airflow-actionproject` P
 Example:
 
 ```bash
-actiontool database install streetspectra /home/rafa/airflow/extra
+(venv_airflow)  ~$ actiontool database install streetspectra /home/rafa/airflow/extra
+```
+
+The tool will output somethoing like this:
+
+```
+2021-08-02 12:25:58,646 [INFO] ============== actiontool 0.1.15 ==============
+2021-08-02 12:25:58,646 [INFO] Installing 'streetspectra' database into /home/rafa/airflow/extra
+2021-08-02 12:25:58,646 [INFO] Open/Create database file /home/rafa/airflow/extra/streetspectra.db
+2021-08-02 12:25:58,647 [INFO] Created database file /home/rafa/airflow/extra/streetspectra.db
+2021-08-02 12:25:59,123 [INFO] Created data model from streetspectra.sql
+2021-08-02 12:25:59,123 [INFO] Installed 'streetspectra' database into /home/rafa/airflow/extra
 ```
 
 installs the `streetspectra.db` SQLite database inside the `/home/rafa/airflow/extra` directory, creating all the intermediate directories if necessary.
 
-2. Airflow connection to SQlite classification database:
+2. Airflow connection to SQLite classification database:
 
 
 ```bash
 airflow connections add \
---conn-type sqlite \
+--conn-type SQLite \
 --conn-host  "/home/rafa/airflow/extra/streetspectra.db" \
 --conn-description "Connection to StreetSpectra SQLite database" \
 streetspectra-db
