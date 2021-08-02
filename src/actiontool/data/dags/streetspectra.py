@@ -247,9 +247,9 @@ download_from_action >> upload_new_subject_set >> email_new_subject_set
 [email_new_subject_set, email_no_images] >> cleanup_action_obs_file
 
 
-# ===================================
-# CLASSIFICATIONS EXPORT ETL WORKFLOW
-# ===================================
+# ====================================================
+# CLASSIFICATIONS AGGREGATION AND PUBLICATION WORKFLOW
+# ====================================================
 
 # Aqui hay que tener en cuenta que el exportado de Zooniverse es completo
 # y que la BD de ACTION NO detecta duplicados
