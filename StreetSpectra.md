@@ -77,9 +77,9 @@ airflow connections add \
 --conn-type https \
 --conn-host www.zooniverse.org \
 --conn-port 443 \
---conn-login "<your zooniverse login>" \
---conn-password "<your zooniverse password>" \
---conn-schema "<our street spectra slug>" \
+--conn-login "actionprojecteu" \
+--conn-password "<Zooniverse password>" \
+--conn-schema "street-spectra" \
 --conn-description "Connection to Zooniverse citizen science web portal" \
 streetspectra-zooniverse
 ```
@@ -93,8 +93,8 @@ airflow connections add \
 --conn-type https \
 --conn-host www.zooniverse.org \
 --conn-port 443 \
---conn-login "<another zooniverse login>" \
---conn-password "<another zooniverse password>" \
+--conn-login "<another Zooniverse login>" \
+--conn-password "<another Zooniverse password>" \
 --conn-schema "street-spectra-test-2" \
 --conn-description "Connection to Zooniverse citizen science web portal (test)" \
 streetspectra-zooniverse-test
