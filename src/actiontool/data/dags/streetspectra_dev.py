@@ -155,8 +155,8 @@ export_ec5_old          >> transform_ec5_old          >> load_ec5_old          >
 # Zooniverse Feeding Workflow
 # ===========================
 
-streetspectra_zoo_import_dag = DAG(
-    'streetspectra_zoo_import_dag',
+streetspectra_feed_dag = DAG(
+    'streetspectra_feed_dag',
     default_args      = default_args,
     description       = 'StreetSpectra: Zooniverse image feeding workflow',
     schedule_interval = '@daily',
@@ -175,7 +175,7 @@ manage_subject_sets = ShortCircuitOperator(
         "conn_id"  : "streetspectra-zooniverse-test",
         "threshold": 75,    # 75% workflow completion status
     },
-    dag           = streetspectra_zoo_import_dag
+    dag           = streetspectra_feed_dag
 )
 
 check_enough_observations = BranchPythonOperator(
@@ -190,7 +190,7 @@ check_enough_observations = BranchPythonOperator(
         "false_task_id" : "email_no_images",
         "obs_type"      : 'observation',
     },
-    dag           = streetspectra_zoo_import_dag
+    dag           = streetspectra_feed_dag
 )
 
 email_no_images = EmailOperator(
@@ -198,7 +198,7 @@ email_no_images = EmailOperator(
     to           = ("astrorafael@gmail.com",),
     subject      = "[StreetSpectra] Airflow warn: No ACTION images left",
     html_content = "No images left in ACTION database to create an new Zooniverse Subject Set.",
-    dag          = streetspectra_zoo_import_dag,
+    dag          = streetspectra_feed_dag,
 )
 
 download_from_action = ActionDownloadFromVariableDateOperator(
@@ -209,7 +209,7 @@ download_from_action = ActionDownloadFromVariableDateOperator(
     n_entries      = 10,                                    # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
     project        = "street-spectra", 
     obs_type       = "observation",
-    dag            = streetspectra_zoo_import_dag,
+    dag            = streetspectra_feed_dag,
 )
 
 upload_new_subject_set = ZooImportOperator(
@@ -217,7 +217,7 @@ upload_new_subject_set = ZooImportOperator(
     conn_id         = "streetspectra-zooniverse-test",
     input_path      = "/tmp/zooniverse/streetspectra/action-{{ds}}.json", 
     display_name    = "Subject Set {{ds}}",
-    dag             = streetspectra_zoo_import_dag,
+    dag             = streetspectra_feed_dag,
 )
 
 # This needs to be configured:
@@ -229,14 +229,14 @@ email_new_subject_set = EmailOperator(
     to           = ("astrorafael@gmail.com",),
     subject      = "[StreetSpectra] Airflow info: new Zooniverse Subject Set",
     html_content = "New Zooniverse Subject Set {{ds}} created.",
-    dag          = streetspectra_zoo_import_dag,
+    dag          = streetspectra_feed_dag,
 )
 
 cleanup_action_obs_file = BashOperator(
     task_id      = "cleanup_action_obs_file",
     trigger_rule = "none_failed",    # For execution of just one preceeding branch only
     bash_command = "rm /tmp/zooniverse/streetspectra/*{{ds}}.json",
-    dag          = streetspectra_zoo_import_dag,
+    dag          = streetspectra_feed_dag,
 )
 
 # -----------------
@@ -261,8 +261,8 @@ download_from_action >> upload_new_subject_set >> email_new_subject_set
 # sino en una tabla de la BD Sqlite interna
 
 
-streetspectra_zoo_export_dag = DAG(
-    'streetspectra_zoo_export_dag',
+streetspectra_aggregate_dag = DAG(
+    'streetspectra_aggregate_dag',
     default_args      = default_args,
     description       = 'StreetSpectra: Zooniverse classifications export workflow',
     schedule_interval = '@monthly',
@@ -282,7 +282,7 @@ export_classifications = ZooniverseExportOperator(
     generate    = True, 
     wait        = True, 
     timeout     = 600,
-    dag         = streetspectra_zoo_export_dag,
+    dag         = streetspectra_aggregate_dag,
 )
 
 # Produces an output file with only new classifications
@@ -293,7 +293,7 @@ only_new_classifications = ZooniverseDeltaOperator(
     conn_id       = "streetspectra-db",
     input_path    = "/tmp/zooniverse/complete-{{ds}}.json",
     output_path   = "/tmp/zooniverse/subset-{{ds}}.json",
-    dag           = streetspectra_zoo_export_dag,
+    dag           = streetspectra_aggregate_dag,
 )
 
 # Transforms the new Zooniverse classifcations file in to a JSON
@@ -304,7 +304,7 @@ transform_classfications = ZooniverseTransformOperator(
     input_path   = "/tmp/zooniverse/subset-{{ds}}.json",
     output_path  = "/tmp/zooniverse/transformed-subset-{{ds}}.json",
     project      = "street-spectra",
-    dag          = streetspectra_zoo_export_dag,
+    dag          = streetspectra_aggregate_dag,
 )
 
 # Preprocess the transformed file into a StreetSpectra
@@ -314,7 +314,7 @@ preprocess_classifications = PreprocessClassifOperator(
     task_id    = "preprocess_classifications",
     conn_id    = "streetspectra-db",
     input_path = "/tmp/zooniverse/transformed-subset-{{ds}}.json",
-    dag        = streetspectra_zoo_export_dag,
+    dag        = streetspectra_aggregate_dag,
 )
 
 # Check new spectra to be classified and aggregated
@@ -327,13 +327,13 @@ check_new_spectra = BranchPythonOperator(
         "true_task_id"  : "aggregate_classifications",
         "false_task_id" : "skip_to_end",
     },
-    dag           = streetspectra_zoo_export_dag
+    dag           = streetspectra_aggregate_dag
 )
 
 # needed for branching
 skip_to_end = DummyOperator(
     task_id    = "skip_to_end",
-    dag        = streetspectra_zoo_export_dag,
+    dag        = streetspectra_aggregate_dag,
 )
 
 
@@ -343,7 +343,7 @@ skip_to_end = DummyOperator(
 aggregate_classifications = AggregateOperator(
     task_id    = "aggregate_classifications",
     conn_id    = "streetspectra-db",
-    dag        = streetspectra_zoo_export_dag,
+    dag        = streetspectra_aggregate_dag,
 )
 
 # Export aggregated classifications into CSV file format
@@ -352,7 +352,7 @@ export_aggregated_csv = AggregateCSVExportOperator(
     task_id     = "export_aggregated_csv",
     conn_id     = "streetspectra-db",
     output_path = "/tmp/zooniverse/streetspectra-aggregated.csv",
-    dag         = streetspectra_zoo_export_dag,
+    dag         = streetspectra_aggregate_dag,
 )
 
 # Export individuyal classifications into CSV format
@@ -361,7 +361,7 @@ export_individual_csv = IndividualCSVExportOperator(
     task_id     = "export_individual_csv",
     conn_id     = "streetspectra-db",
     output_path = "/tmp/zooniverse/streetspectra-individual.csv",
-    dag         = streetspectra_zoo_export_dag,
+    dag         = streetspectra_aggregate_dag,
 )
 
 # Publish the aggregated dataset to Zenodo
@@ -375,7 +375,7 @@ publish_aggregated_csv = ZenodoPublishDatasetOperator(
     version     = '{{ execution_date.strftime("%y.%m")}}',
     creators    = [{'name': "Zamorano, Jaime"}, {'name': "Gonzalez, Rafael"}],
     communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project"}],
-    dag         = streetspectra_zoo_export_dag,
+    dag         = streetspectra_aggregate_dag,
 )
 
 # Publish the individual dataset to Zenodo
@@ -389,13 +389,13 @@ publish_individual_csv = ZenodoPublishDatasetOperator(
     version     = '{{ execution_date.strftime("%y.%m")}}',
     creators    = [{'name': "Zamorano, Jaime"}, {'name': "Gonzalez, Rafael"}],
     communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project"}],
-    dag         = streetspectra_zoo_export_dag,
+    dag         = streetspectra_aggregate_dag,
 )
 
 # needed for parallel export+publish operations
 join_published = DummyOperator(
     task_id    = "join_published",
-    dag        = streetspectra_zoo_export_dag,
+    dag        = streetspectra_aggregate_dag,
 )
 
 # Clean up temporary files
@@ -403,7 +403,7 @@ clean_up_classif_files = BashOperator(
     task_id      = "clean_up_classif_files",
     trigger_rule = "none_failed",    # For execution of just one preceeding branch only
     bash_command = "rm /tmp/zooniverse/*.csv; rm /tmp/zooniverse/*-{{ds}}.json",
-    dag          = streetspectra_zoo_export_dag,
+    dag          = streetspectra_aggregate_dag,
 )
 
 # -----------------

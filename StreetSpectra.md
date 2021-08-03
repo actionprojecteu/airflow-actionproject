@@ -9,9 +9,9 @@ There are three workflows (DAGs) to execute for StreetSpectra:
 
 * The [observations extraction workflow](#observations-extraction-workflow), `streetspectra_collect_dag` that extracts observations from the Observing Platform (Epicollect 5), transforms them and loads them into the ACTION database. This is executed monthly.
 
-* The [Zooniverse feeding workflow](#zooniverse-feeding-workflow) `streetspectra_zoo_import_dag` that creates and loads new Zooniverse subject sets from the ACTION observations as the previous classifications are being completed. This is executed on a daily basis.
+* The [Zooniverse feeding workflow](#zooniverse-feeding-workflow) `streetspectra_feed_dag` that creates and loads new Zooniverse subject sets from the ACTION observations as the previous classifications are being completed. This is executed on a daily basis.
 
-* The [aggregation and publication workflow](#aggregation-and-publication-workflow) `streetspectra_zoo_export_dag` , where all the individual classifications made in Zooniverse  are aggregated (per light source in image) and published into a Open Data scence portal (Zenodo). This is executed monthly.
+* The [aggregation and publication workflow](#aggregation-and-publication-workflow) `streetspectra_aggregate_dag` , where all the individual classifications made in Zooniverse  are aggregated (per light source in image) and published into a Open Data scence portal (Zenodo). This is executed monthly.
 
 
 # Observations extraction workflow
