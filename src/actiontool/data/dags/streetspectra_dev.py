@@ -172,7 +172,7 @@ manage_subject_sets = ShortCircuitOperator(
     task_id         = "manage_subject_sets",
     python_callable = zooniverse_manage_subject_sets,
     op_kwargs = {
-        "conn_id"  : "streetspectra-zooniverse-test",
+        "conn_id"  : "streetspectra-zooniverse-test",       # CAMBIAR AL conn_id DE PRODUCCION
         "threshold": 75,    # 75% workflow completion status
     },
     dag           = streetspectra_feed_dag
@@ -214,7 +214,7 @@ download_from_action = ActionDownloadFromVariableDateOperator(
 
 upload_new_subject_set = ZooImportOperator(
     task_id         = "upload_new_subject_set",
-    conn_id         = "streetspectra-zooniverse-test",
+    conn_id         = "streetspectra-zooniverse-test",      # CAMBIAR AL conn_id DE PRODUCCION
     input_path      = "/tmp/zooniverse/streetspectra/action-{{ds}}.json", 
     display_name    = "Subject Set {{ds}}",
     dag             = streetspectra_feed_dag,
@@ -226,7 +226,7 @@ upload_new_subject_set = ZooImportOperator(
 
 email_new_subject_set = EmailOperator(
     task_id      = "email_new_subject_set",
-    to           = ("astrorafael@gmail.com",),
+    to           = ("astrorafael@gmail.com",),      # Cambiar al email de producción
     subject      = "[StreetSpectra] Airflow info: new Zooniverse Subject Set",
     html_content = "New Zooniverse Subject Set {{ds}} created.",
     dag          = streetspectra_feed_dag,
@@ -277,7 +277,7 @@ streetspectra_aggregate_dag = DAG(
 # Perform the whole Zooniverse export from the beginning of the project
 export_classifications = ZooniverseExportOperator(
     task_id     = "export_classifications",
-    conn_id     = "streetspectra-zooniverse-test",
+    conn_id     = "streetspectra-zooniverse-test",      # CAMBIAR AL conn_id DE PRODUCCION
     output_path = "/tmp/zooniverse/complete-{{ds}}.json",
     generate    = True, 
     wait        = True, 
@@ -368,7 +368,7 @@ export_individual_csv = IndividualCSVExportOperator(
 # This operator is valid for anybody wishing to publish datasets to Zenodo
 publish_aggregated_csv = ZenodoPublishDatasetOperator(
     task_id     = "publish_aggregated_csv",
-    conn_id     = "streetspectra-zenodo-sandbox",
+    conn_id     = "streetspectra-zenodo-sandbox",           # CAMBIAR AL conn_id DE PRODUCCION
     title       = "Street Spectra aggregated classifications",
     file_path   = "/tmp/zooniverse/streetspectra-aggregated.csv",
     description = "CSV file containing aggregated classifications for light sources data and metadata.",
@@ -382,7 +382,7 @@ publish_aggregated_csv = ZenodoPublishDatasetOperator(
 # This operator is valid for anybody wishing to publish datasets to Zenodo
 publish_individual_csv = ZenodoPublishDatasetOperator(
     task_id     = "publish_individual_csv",
-    conn_id     = "streetspectra-zenodo-sandbox",
+    conn_id     = "streetspectra-zenodo-sandbox",           # CAMBIAR AL conn_id DE PRODUCCION
     title       = "Street Spectra individual classifications",
     file_path   = "/tmp/zooniverse/streetspectra-individual.csv",
     description = "CSV file containing individual classifications for subjects data and metadata.",

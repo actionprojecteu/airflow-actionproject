@@ -49,7 +49,7 @@ default_args = {
     'owner'           : 'airflow',
     'depends_on_past' : False,
     'email'           : ("astrorafael@gmail.com",), # CAMBIAR AL VERDADERO EN PRODUCCION
-    'email_on_failure': False,                      # CAMBIAR A True EN PRODUCCION
+    'email_on_failure': True,                       # CAMBIAR A True EN PRODUCCION
     'email_on_retry'  : False,
     'retries'         : 1,
     'retry_delay'     : timedelta(minutes=5),
@@ -171,7 +171,7 @@ manage_subject_sets = ShortCircuitOperator(
     task_id         = "manage_subject_sets",
     python_callable = zooniverse_manage_subject_sets,
     op_kwargs = {
-        "conn_id"  : "streetspectra-zooniverse-test",
+        "conn_id"  : "streetspectra-zooniverse",                # CAMBIAR AL conn_id DE PRODUCCION
         "threshold": 75,    # 75% workflow completion status
     },
     dag           = streetspectra_feed_dag
@@ -183,7 +183,7 @@ check_enough_observations = BranchPythonOperator(
     op_kwargs = {
         "conn_id"       : "streetspectra-action-database",
         "start_date"    : "2019-09-01T00:00:00.00000Z",     # ESTA ES LA PRIMERA FECHA EN LA QUE HAY ALGO
-        "n_entries"     : 10,                               # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
+        "n_entries"     : 500,                              # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
         "project"       : "street-spectra",
         "true_task_id"  : "download_from_action",
         "false_task_id" : "email_no_images",
@@ -194,7 +194,7 @@ check_enough_observations = BranchPythonOperator(
 
 email_no_images = EmailOperator(
     task_id      = "email_no_images",
-    to           = ("astrorafael@gmail.com",),
+    to           = ("astrorafael@gmail.com",),      # Cambiar al email verdadero en produccion
     subject      = "[StreetSpectra] Airflow warn: No ACTION images left",
     html_content = "No images left in ACTION database to create an new Zooniverse Subject Set.",
     dag          = streetspectra_feed_dag,
@@ -205,7 +205,7 @@ download_from_action = ActionDownloadFromVariableDateOperator(
     conn_id        = "streetspectra-action-database",
     output_path    = "/tmp/zooniverse/streetspectra/action-{{ds}}.json",
     variable_name  = "streetspectra_read_tstamp",
-    n_entries      = 10,                                    # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
+    n_entries      = 500,                                    # ESTO TIENE QUE CAMBIARSE A 500 PARA PRODUCCION
     project        = "street-spectra", 
     obs_type       = "observation",
     dag            = streetspectra_feed_dag,
@@ -213,7 +213,7 @@ download_from_action = ActionDownloadFromVariableDateOperator(
 
 upload_new_subject_set = ZooImportOperator(
     task_id         = "upload_new_subject_set",
-    conn_id         = "streetspectra-zooniverse-test",
+    conn_id         = "streetspectra-zooniverse",           # CAMBIAR AL conn_id DE PRODUCCION
     input_path      = "/tmp/zooniverse/streetspectra/action-{{ds}}.json", 
     display_name    = "Subject Set {{ds}}",
     dag             = streetspectra_feed_dag,
@@ -276,7 +276,7 @@ streetspectra_aggregate_dag = DAG(
 # Perform the whole Zooniverse export from the beginning of the project
 export_classifications = ZooniverseExportOperator(
     task_id     = "export_classifications",
-    conn_id     = "streetspectra-zooniverse-test",
+    conn_id     = "streetspectra-zooniverse",               # CAMBIAR AL conn_id DE PRODUCCION
     output_path = "/tmp/zooniverse/complete-{{ds}}.json",
     generate    = True, 
     wait        = True, 
@@ -367,7 +367,7 @@ export_individual_csv = IndividualCSVExportOperator(
 # This operator is valid for anybody wishing to publish datasets to Zenodo
 publish_aggregated_csv = ZenodoPublishDatasetOperator(
     task_id     = "publish_aggregated_csv",
-    conn_id     = "streetspectra-zenodo-sandbox",
+    conn_id     = "streetspectra-zenodo",                   # CAMBIAR AL conn_id DE PRODUCCION
     title       = "Street Spectra aggregated classifications",
     file_path   = "/tmp/zooniverse/streetspectra-aggregated.csv",
     description = "CSV file containing aggregated classifications for light sources data and metadata.",
@@ -381,7 +381,7 @@ publish_aggregated_csv = ZenodoPublishDatasetOperator(
 # This operator is valid for anybody wishing to publish datasets to Zenodo
 publish_individual_csv = ZenodoPublishDatasetOperator(
     task_id     = "publish_individual_csv",
-    conn_id     = "streetspectra-zenodo-sandbox",
+    conn_id     = "streetspectra-zenodo",               # CAMBIAR AL conn_id DE PRODUCCION
     title       = "Street Spectra individual classifications",
     file_path   = "/tmp/zooniverse/streetspectra-individual.csv",
     description = "CSV file containing individual classifications for subjects data and metadata.",
