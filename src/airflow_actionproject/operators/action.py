@@ -68,7 +68,9 @@ class ActionUploadOperator(BaseOperator):
 
 class ActionRangedDownloadOperator(BaseOperator):
 	'''
-	Operator that fetches entries from Epicollect V API.
+	Operator that fetches project entries from the ACTION database between 
+	a given start and end dates. 
+	Entries may be either observations or classifications.
 
 	Parameters
 	—————

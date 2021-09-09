@@ -147,17 +147,19 @@ class ActionDatabaseHook(BaseHook):
 		
 		Parameters
 		—————
-		project_slug : str
-		The slugified project name
 		start_date : str
 		Start date to start fetching ratings from (inclusive). Expected
 		format is YYYY-MM-DD (equal to Airflow"s ds formats).
 		end_date : str
 		End date to fetching ratings up to (exclusive). Expected
 		format is YYYY-MM-DD (equal to Airflow"s ds formats).
-		batch_size : int
-		Page size to fetch from the API. Larger values
-		mean less requests, but more data transferred per request.
+		project: str
+		The ACTION project name
+		obs_type : str
+		observation type. Either ·"observation" or "classification".
+		n_entries : int
+		maximun number of entries to download. 
+		Request are internally paged by the "page-size" connection parameter
 		'''
 		session, url, page_size, delay = self.get_conn()
 		self.log.info(f"Getting from ACTION Database {n_entries} {obs_type}(s) for {project} from {start_date} to {end_date}")

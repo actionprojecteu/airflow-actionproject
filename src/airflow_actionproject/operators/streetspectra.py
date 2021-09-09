@@ -393,6 +393,8 @@ class AggregateOperator(BaseOperator):
             parameters={'subject_id': subject_id}
         )
         for clsf1, x1, y1 in info1:
+            if x1 is None or y1 is None:
+                continue
             info2 = hook.get_records('''
                 SELECT classification_id, source_x, source_y, source_id
                 FROM spectra_classification_t 
@@ -402,6 +404,8 @@ class AggregateOperator(BaseOperator):
             )
             if info2:
                 for clsf2, x2, y2, source2 in info2:
+                    if x2 is None or y2 is None:
+                        continue
                     distance = math.sqrt((x1-x2)**2 + (y1-y2)**2)
                     if distance < self.RADIUS:
                         (source1,) = hook.get_first('''
