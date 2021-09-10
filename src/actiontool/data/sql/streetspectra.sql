@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS spectra_classification_t
     spectrum_width      REAL,   -- spectrum box width
     spectrum_height     REAL,   -- spectrum box height
     spectrum_angle      REAL,   -- spectrum box angle (degrees) (respect to X axis?)
-    spectrum_type       TEXT,   -- spectrum type (LED, MV, HPS, LPS, MH)
+    spectrum_type       TEXT,   -- spectrum type ('HPS','MV','LED','MH')
     image_id            INT,    -- observing platform image Id
     image_url           TEXT,   -- observing platform image URL
     image_long          REAL,   -- image aprox. longitude

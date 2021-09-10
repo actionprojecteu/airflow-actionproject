@@ -21,13 +21,13 @@ Exporta sin errores a un fichero con un JSON vacio []
 
 
 # Valores enumerativos de la paleta de espectros
-LED - Light Emitting Diode. => 0
-HPS - High Pressure Sodium. => 1
-LPS - Low Pressure Sodium. => 2
+HPS - High Pressure Sodium. => 0
+MV - Mercury Vapor. => 1
+LED - Light Emitting Diode. => 2
 MH - Metal Halide. => 3
-MV - Mercury Vapor. => 4
 
-# Sample run when classifying a subject set
+
+# Sample run when classifying a subject set (note 'LPS' is no longer used)
 [2021-07-08 19:22:49,249] {streetspectra.py:478} INFO - ######################## RATINGS = [{'subject_id': 63339761, 'source_id': 5, 'spectrum_type': 'Ambiguous', 'spectrum_dist': "[('HPS', 1), ('LED', 1)]", 'counter': Counter({'HPS': 1, 'LED': 1})}, {'subject_id': 63339761, 'source_id': 1, 'spectrum_type': 'LED', 'spectrum_dist': "[('LED', 2), ('HPS', 1)]", 'counter': Counter({'LED': 2, 'HPS': 1})}, {'subject_id': 63339761, 'source_id': 4, 'spectrum_type': 'LPS', 'spectrum_dist': "[('LPS', 1)]", 'counter': Counter({'LPS': 1})}]
 p_j = {'LED': 0.16666666666666666, 'HPS': 0.1111111111111111, 'LPS': 0.05555555555555555, 'MV': 0.0, 'MH': 0.0, None: 0.0}
 P_i = {1: -0.03333333333333333, 4: -0.16666666666666666, 5: -0.13333333333333333}

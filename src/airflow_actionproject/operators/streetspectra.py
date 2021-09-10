@@ -195,11 +195,10 @@ class PreprocessClassifOperator(BaseOperator):
     template_fields = ("_input_path",)
 
     SPECTRUM_TYPE = {
-        0: 'LED',   # Light Emitting Diode
-        1: 'HPS',   # High Pressure Sodium
-        2: 'LPS',   # Low Pressure Sodium
-        3: 'MH',    # Metal Halide
-        4: 'MV',    # Mercury Vapor
+        0: 'HPS',   # High Pressure Sodium
+        1: 'MV',    # Mercury Vapor
+        2: 'LED',   # Light Emitting Diode
+        3: 'MH',    # Metal Halide 
     }
 
     @apply_defaults
@@ -352,7 +351,7 @@ class AggregateOperator(BaseOperator):
     '''
 
     RADIUS = 10  # light source dispersion radius in pixels
-    CATEGORIES = ('LED','HPS','LPS','MV','MH', None)
+    CATEGORIES = ('HPS','MV','LED','MH', None)
 
     @apply_defaults
     def __init__(self, conn_id, **kwargs):
