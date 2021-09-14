@@ -38,6 +38,20 @@ from airflow_actionproject.hooks.streetspectra import ZooSpectraHook
 # Module global variables
 # -----------------------
 
+# -------------------
+# Auxiliar functions
+# -------------------
+
+def strip_email(nickname):
+    regex = r'(\b[A-Za-z0-9._%+-]+)@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+    reobj = re.compile(regex)
+    result = nickname
+    matchobj = reobj.search(nickname)
+    if matchobj:
+        result = matchobj.groups(1)[0]
+    return result
+
+
 # ----------------
 # Module constants
 # ----------------
@@ -119,6 +133,8 @@ class EC5TransformOperator(BaseOperator):
             'longitude': location.get('longitude', None),
             'accuracy':  location.get('accuracy', None)
         }
+        # Get rid of possible email addresses for privacy issues by stripping out the domain
+        item["observer"] = strip_email(item["observer"])
         # Add extra items
         item["project"] = "street-spectra"
         item["source"] = "Epicollect5"
