@@ -48,7 +48,7 @@ from airflow_actionproject.callables.streetspectra import check_new_subjects
 default_args = {
     'owner'           : 'airflow',
     'depends_on_past' : False,
-    'email'           : ("astrorafael@gmail.com",), # CAMBIAR AL VERDADERO EN PRODUCCION
+    'email'           : ("developer@actionproject.eu",), # CAMBIAR AL VERDADERO EN PRODUCCION
     'email_on_failure': True,                       # CAMBIAR A True EN PRODUCCION
     'email_on_retry'  : False,
     'retries'         : 1,
@@ -194,7 +194,7 @@ check_enough_observations = BranchPythonOperator(
 
 email_no_images = EmailOperator(
     task_id      = "email_no_images",
-    to           = ("astrorafael@gmail.com",),      # Cambiar al email verdadero en produccion
+    to           = ("developer@actionproject.eu",),      # Cambiar al email verdadero en produccion
     subject      = "[StreetSpectra] Airflow warn: No ACTION images left",
     html_content = "No images left in ACTION database to create an new Zooniverse Subject Set.",
     dag          = streetspectra_feed_dag,
@@ -225,7 +225,7 @@ upload_new_subject_set = ZooImportOperator(
 
 email_new_subject_set = EmailOperator(
     task_id      = "email_new_subject_set",
-    to           = ("astrorafael@gmail.com",),
+    to           = ("developer@actionproject.eu",),
     subject      = "[StreetSpectra] Airflow info: new Zooniverse Subject Set",
     html_content = "New Zooniverse Subject Set {{ds}} created.",
     dag          = streetspectra_feed_dag,
