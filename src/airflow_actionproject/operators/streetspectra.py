@@ -11,6 +11,7 @@
 # -------------------
 
 import os
+import re
 import csv
 import json
 import math
@@ -50,6 +51,8 @@ def strip_email(nickname):
     if matchobj:
         result = matchobj.groups(1)[0]
     return result
+
+
 
 
 # ----------------
@@ -141,13 +144,17 @@ class EC5TransformOperator(BaseOperator):
         item["obs_type"] = "observation"
         return item
 
+    def _non_empty_image(self, item):
+        return True if item['url'] else False
+
 
     def _ec5_remapper(self, entries):
         '''Map Epicollect V metadata to an ernal, more convenient representation'''
         # Use generators instead of lists
         g1 = ({self.NAME_MAP[name]: val for name, val in entry.items()} for entry in entries)
-        g2 =  map(self._remap, g1)
-        return g2
+        g2 = map(self._remap, g1)
+        g3 = filter(self._non_empty_image, g2)
+        return g3
 
 
 # --------------------------------------------------------------
