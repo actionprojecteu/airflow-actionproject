@@ -137,7 +137,7 @@ class EC5TransformOperator(BaseOperator):
             'accuracy':  location.get('accuracy', None)
         }
         # Get rid of possible email addresses for privacy issues by stripping out the domain
-        item["observer"] = strip_email(item.get("observer","")
+        item["observer"] = strip_email(item.get("observer",""))
         # Add extra items
         item["project"] = "street-spectra"
         item["source"] = "Epicollect5"
