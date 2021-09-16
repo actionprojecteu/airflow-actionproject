@@ -159,7 +159,7 @@ streetspectra_feed_dag = DAG(
     default_args      = default_args,
     description       = 'StreetSpectra: Zooniverse image feeding workflow',
     schedule_interval = '@daily',
-    start_date        = days_ago(2),
+    start_date        = days_ago(1),
     tags              = ['StreetSpectra', 'ACTION PROJECT'],
 )
 
