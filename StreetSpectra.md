@@ -66,6 +66,16 @@ streetspectra-action-database
 * The `schema` field contains "observations" as fixed slug for the time being.
 * The `extra` field contains the HTTP page size for downloads and the transactions per second rate limit.
 
+3. Also, the DAG file for this workflow must be updated using our `actiontool`:
+
+```bash
+# Activate virtualenv if necessary
+. venv_airflow/bin/activate
+
+actiontool dags install streetspectra_collect
+````
+
+```
 # Zooniverse feeding workflow
 
 The following items must be provisioned:
@@ -113,6 +123,15 @@ airflow variables set streetspectra_read_tstamp "2000-01-01T00:00:00.000Z"
 
 As part of this workflow, some emails may be sent (using the `EmailOperator`). You need to have an email account ready 
 and also configure Airflow's SMTP capabilities. See Stack's overflow [How to set up airflow for sending emails.](https://stackoverflow.com/questions/51829200/how-to-set-up-airflow-send-email)
+
+4. Also, the DAG file for this workflow must be updated using our `actiontool`:
+
+```bash
+# Activate virtualenv if necessary
+. venv_airflow/bin/activate
+
+actiontool dags install streetspectra_feed
+```
 
 
 # Aggregation and publication workflow
@@ -184,4 +203,12 @@ airflow connections add \
 --conn-extra '{"page_size": 100, "tps": 2}' \
 --conn-description "Connection to Zenodo sandbox environment" \
 streetspectra-zenodo-sandbox
+```
+4. Also, the DAG file for this workflow must be updated using our `actiontool`:
+
+```bash
+# Activate virtualenv if necessary
+. venv_airflow/bin/activate
+
+actiontool dags install streetspectra_aggregate
 ```
