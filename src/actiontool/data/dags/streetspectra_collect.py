@@ -40,8 +40,8 @@ default_args = {
     'email'           : ("developer@actionproject.eu","astrorafael@gmail.com"), # CAMBIAR AL VERDADERO EN PRODUCCION
     'email_on_failure': True,                       # CAMBIAR A True EN PRODUCCION
     'email_on_retry'  : False,
-    'retries'         : 1,
-    'retry_delay'     : timedelta(minutes=5),
+    'retries'         : 2,
+    'retry_delay'     : timedelta(minutes=30),
     # 'queue': 'bash_queue',
     # 'pool': 'backfill',
     # 'priority_weight': 10,
@@ -70,7 +70,7 @@ streetspectra_collect_dag = DAG(
     default_args      = default_args,
     description       = 'StreetSpectra: collect observations',
     schedule_interval = '@monthly',
-    start_date        = datetime(year=2019, month=1, day=1),
+    start_date        = days_ago(1),
     tags              = ['StreetSpectra', 'ACTION PROJECT'],
 )
 

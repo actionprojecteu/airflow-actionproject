@@ -44,8 +44,8 @@ default_args = {
     'email'           : ("developer@actionproject.eu","astrorafael@gmail.com"), # CAMBIAR AL VERDADERO EN PRODUCCION
     'email_on_failure': True,                       # CAMBIAR A True EN PRODUCCION
     'email_on_retry'  : False,
-    'retries'         : 1,
-    'retry_delay'     : timedelta(minutes=5),
+    'retries'         : 2,
+    'retry_delay'     : timedelta(minutes=30),
     # 'queue': 'bash_queue',
     # 'pool': 'backfill',
     # 'priority_weight': 10,
@@ -84,7 +84,7 @@ manage_subject_sets = ShortCircuitOperator(
     python_callable = zooniverse_manage_subject_sets,
     op_kwargs = {
         "conn_id"  : "streetspectra-zooniverse",                # CAMBIAR AL conn_id DE PRODUCCION
-        "threshold": 75,    # 75% workflow completion status
+        "threshold": 85,    # 85% workflow completion status
     },
     dag           = streetspectra_feed_dag
 )

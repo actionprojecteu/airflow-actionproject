@@ -80,7 +80,7 @@ streetspectra_aggregate_dag = DAG(
     default_args      = default_args,
     description       = 'StreetSpectra: Zooniverse classifications export workflow',
     schedule_interval = '@monthly',
-    start_date        = days_ago(2),
+    start_date        = days_ago(1),
     tags              = ['StreetSpectra', 'ACTION PROJECT'],
 )
 
@@ -188,7 +188,7 @@ publish_aggregated_csv = ZenodoPublishDatasetOperator(
     description = "CSV file containing aggregated classifications for light sources data and metadata.",
     version     = '{{ execution_date.strftime("%y.%m")}}',
     creators    = [{'name': "Zamorano, Jaime"}, {'name': "Gonzalez, Rafael"}],
-    communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project"}],
+    communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project", 'id': "actionprojecteu"}],
     dag         = streetspectra_aggregate_dag,
 )
 
@@ -202,7 +202,7 @@ publish_individual_csv = ZenodoPublishDatasetOperator(
     description = "CSV file containing individual classifications for subjects data and metadata.",
     version     = '{{ execution_date.strftime("%y.%m")}}',
     creators    = [{'name': "Zamorano, Jaime"}, {'name': "Gonzalez, Rafael"}],
-    communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project"}],
+    communities = [{'title': "Street Spectra", 'id': "street-spectra"}, {'title':"Action Project", 'id': "actionprojecteu"}],
     dag         = streetspectra_aggregate_dag,
 )
 

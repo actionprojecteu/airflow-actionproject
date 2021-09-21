@@ -181,7 +181,7 @@ Where `conn-host` specifies the full, absolute path to the SQLite database.
 ```bash
 airflow connections add \
 --conn-type https \
---conn-host sandbox.zenodo.org \
+--conn-host zenodo.org \
 --conn-port 443 \
 --conn-password "<Zenodo API key>" \
 --conn-extra '{"page_size": 100, "tps": 2}' \
