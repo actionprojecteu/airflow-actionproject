@@ -1,8 +1,0 @@
-#!/bin/bash
-# ----------------------------------------------------------------------
-# Copyright (c) 20121 astrorafael@gmail.com.
-#
-# See the LICENSE file for details
-# ----------------------------------------------------------------------
-
-python -m actiontool "$@"

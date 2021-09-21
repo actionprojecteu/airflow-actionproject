@@ -11,7 +11,7 @@ LONG_DESCRIPTION = open('README.md').read()
 PKG_NAME     = 'airflow-actionproject'
 AUTHOR       = 'Rafael Gonzalez'
 AUTHOR_EMAIL = 'astrorafael@gmail.com'
-DESCRIPTION  = 'Airflow components for StreetSpectra',
+DESCRIPTION  = 'Airflow components library for ACTION StreetSpectra',
 LICENSE      = 'MIT'
 KEYWORDS     = 'Astronomy Python CitizenScience LightPollution'
 URL          = 'https://github.com/actionprojecteu/airflow-actionproject/'
@@ -30,19 +30,15 @@ CLASSIFIERS  = [
 ]
 
 PACKAGE_DATA = {
-    'actiontool': [
-        'data/dags/*.py',
-        'data/sql/*.sql'
-    ],
+
 }
 
 SCRIPTS = [
-    "scripts/actiontool"
 ]
 
 
 DATA_FILES  = [ 
-#  ('~/airflow/dags',    ['files/dags/streetspectra.py']),
+
 ]
 
 setup(
