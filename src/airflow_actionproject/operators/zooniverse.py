@@ -101,22 +101,23 @@ class ZooniverseDeltaOperator(BaseOperator):
 	(Templated) Path to input Zooniverse export JSON file.
 	output_path : str
 	(Templated) Path to ouput Zooniverse subset export JSON file.
-	
+	start_date_threshold : str
+	Start Y-M-d date when classifications are taken as valid. None if all classifications are valid.
 	'''
 
 	template_fields = ("_input_path", "_output_path")
 
 
 	@apply_defaults
-	def __init__(self, conn_id, input_path, output_path, initial_date=None, **kwargs):
+	def __init__(self, conn_id, input_path, output_path, start_date_threshold=None, **kwargs):
 		super().__init__(**kwargs)
 		self._output_path = output_path
 		self._input_path  = input_path
 		self._conn_id     = conn_id
-		if initial_date:
-			self._initial_date = datetime.datetime.strptime(initial_date, "%Y-%m-%d")
+		if start_date_threshold:
+			self._start_date_threshold = datetime.datetime.strptime(start_date_threshold, "%Y-%m-%d")
 		else:
-			self._initial_date = None
+			self._start_date_threshold = None
 
 
 	def _reencode(self, classification):
@@ -147,7 +148,7 @@ class ZooniverseDeltaOperator(BaseOperator):
 		(before,) = hook.get_first('''SELECT MAX(created_at) FROM zoo_export_t''')
 		for record in raw_exported:
 			created_at = datetime.datetime.strptime(record['created_at'],"%Y-%m-%d %H:%M:%S UTC")
-			if (self._initial_date and created_at < self._initial_date):
+			if (self._start_date_threshold and created_at < self._start_date_threshold):
 				continue
 			record['gold_standard'] = json.dumps(record['gold_standard'])
 			record['expert']        = json.dumps(record['expert'])
