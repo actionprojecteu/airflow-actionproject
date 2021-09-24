@@ -108,11 +108,15 @@ class ZooniverseDeltaOperator(BaseOperator):
 
 
 	@apply_defaults
-	def __init__(self, conn_id, input_path, output_path,  **kwargs):
+	def __init__(self, conn_id, input_path, output_path, initial_date=None, **kwargs):
 		super().__init__(**kwargs)
 		self._output_path = output_path
 		self._input_path  = input_path
 		self._conn_id     = conn_id
+		if initial_date:
+			self._initial_date = datetime.datetime.strptime(initial_date, "%Y-%m-%d")
+		else:
+			self._initial_date = None
 
 
 	def _reencode(self, classification):
@@ -142,6 +146,9 @@ class ZooniverseDeltaOperator(BaseOperator):
 			raw_exported = json.load(fd)
 		(before,) = hook.get_first('''SELECT MAX(created_at) FROM zoo_export_t''')
 		for record in raw_exported:
+			created_at = datetime.datetime.strptime(record['created_at'],"%Y-%m-%d %H:%M:%S UTC")
+			if (self._initial_date and created_at < self._initial_date):
+				continue
 			record['gold_standard'] = json.dumps(record['gold_standard'])
 			record['expert']        = json.dumps(record['expert'])
 			record['annotations']   = json.dumps(record['annotations'])
