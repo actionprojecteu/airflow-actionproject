@@ -252,13 +252,17 @@ class PreprocessClassifOperator(BaseOperator):
             new["source_y"]   = value[0]["y"]
             # Spectrum tool info
             if len(value) > 1:  # The user really used this tool
-                new["spectrum_x"] = value[1]["x"]
-                new["spectrum_y"] = value[1]["y"]
-                new["spectrum_width"]  = value[1]["width"]
-                new["spectrum_height"] = value[1]["height"]
-                new["spectrum_angle"]  = value[1]["angle"]
-                new["spectrum_type"]   = value[1]["details"][0]["value"]
-                new["spectrum_type"] = self.SPECTRUM_TYPE[new["spectrum_type"]] # remap spectrum type codes to strings
+                new["spectrum_x"] = value[1].get("x", None)
+                new["spectrum_y"] = value[1].get("y", None)
+                new["spectrum_width"]  = value[1].get("width", None)
+                new["spectrum_height"] = value[1].get("height", None)
+                new["spectrum_angle"]  = value[1].get("angle", None)
+                details   = value[1].get("details", None)
+                if details:
+                    new["spectrum_type"] = details[0]["value"]
+                    new["spectrum_type"] = self.SPECTRUM_TYPE.get(new["spectrum_type"], new["spectrum_type"]) # remap spectrum type codes to strings
+                else:
+                    new["spectrum_type"] = None
             else:
                 new["spectrum_x"] = None
                 new["spectrum_y"] = None
@@ -281,18 +285,30 @@ class PreprocessClassifOperator(BaseOperator):
         # Metadata coming from the Observing Platform
         key = list(classification["subject_data"].keys())[0]
         value = classification["subject_data"][key]
-        new["image_id"]         = value["id"]
-        new["image_url"]        = value["url"]
-        new["image_long"]       = value["longitude"]
-        new["image_lat"]        = value["latitude"]
-        new["image_observer"]   = value["observer"]
-        new["image_comment"]    = value["comment"]
-        new["image_source"]     = value["source"]
-        new["image_created_at"] = value["created_at"]
+        new["image_id"]         = value.get("id", None)
+        new["image_url"]        = value.get("url", None)
+        new["image_long"]       = value.get("longitude", None)
+        new["image_lat"]        = value.get("latitude", None)
+        new["image_observer"]   = value.get("observer", None)
+        new["image_comment"]    = value.get("comment", None)
+        new["image_source"]     = value.get("source", None)
+        new["image_created_at"] = value.get("created_at", None)
         new["image_spectrum"]   = value.get("spectrum_type", None)  # original classification made by observer
         if new["image_spectrum"] == "":
             new["image_spectrum"] = None
+
+        if not new["image_url"]:
+            self.log.info(f"KAKA Subject {key} => image_id = {new['image_id']} image_url = {new['image_url']}")
         return new
+
+
+    def _is_useful(self, classification):
+        '''False for classifications with either:
+         - no source_x or source_y no spectrum_type
+         - no source metadata from epicollect5'''
+        return classification["source_x"] and classification["source_y"] and \
+                classification["spectrum_type"] and classification["image_id"]
+
 
     def _insert(self, classifications):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
@@ -354,7 +370,7 @@ class PreprocessClassifOperator(BaseOperator):
     def execute(self, context):
         with open(self._input_path) as fd:
             classifications = json.load(fd)
-        classifications = list(map(self._extract, classifications))
+        classifications = list(filter(self._is_useful, map(self._extract, classifications)))
         self._insert(classifications)
         
 
