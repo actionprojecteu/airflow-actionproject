@@ -297,17 +297,14 @@ class PreprocessClassifOperator(BaseOperator):
         if new["image_spectrum"] == "":
             new["image_spectrum"] = None
 
-        if not new["image_url"]:
-            self.log.info(f"KAKA Subject {key} => image_id = {new['image_id']} image_url = {new['image_url']}")
-        return new
-
 
     def _is_useful(self, classification):
         '''False for classifications with either:
-         - no source_x or source_y no spectrum_type
-         - no source metadata from epicollect5'''
+         - no source_x or source_y 
+         - no spectrum_type
+         - missing image_url metadata'''
         return classification["source_x"] and classification["source_y"] and \
-                classification["spectrum_type"] and classification["image_id"]
+                classification["spectrum_type"] and classification["image_url"]
 
 
     def _insert(self, classifications):
@@ -370,7 +367,9 @@ class PreprocessClassifOperator(BaseOperator):
     def execute(self, context):
         with open(self._input_path) as fd:
             classifications = json.load(fd)
+        self.log.info(f"Classification initial list size is {len(classifications)}")
         classifications = list(filter(self._is_useful, map(self._extract, classifications)))
+        self.log.info(f"Classification final list size is {len(classifications)}")
         self._insert(classifications)
         
 
