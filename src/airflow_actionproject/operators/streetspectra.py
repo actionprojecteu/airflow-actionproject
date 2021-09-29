@@ -302,9 +302,12 @@ class PreprocessClassifOperator(BaseOperator):
         '''False for classifications with either:
          - no source_x or source_y 
          - no spectrum_type
-         - missing image_url metadata'''
+         - missing image_url metadata
+         - No GPS pòsition
+         '''
         return classification["source_x"] and classification["source_y"] and \
-                classification["spectrum_type"] and classification["image_url"]
+                classification["spectrum_type"] and classification["image_url"] and \
+                classification["image_long"] and classification["image_lat"]
 
 
     def _insert(self, classifications):
