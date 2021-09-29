@@ -198,6 +198,8 @@ class ZooniverseDeltaOperator(BaseOperator):
 			'''
 			INSERT INTO zoo_export_window_t (executed_at, before, after) VALUES (:executed_at, :before, :after)
 			''', parameters=differences)
+		(N,) = hook.get_first('''SELECT count(*) FROM zoo_export_t''')
+		self.log.info(f"Zooniverse export size contains {N} records")
 
 
 	def _generate(self, hook, context):
