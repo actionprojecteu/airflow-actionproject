@@ -132,9 +132,9 @@ class EC5TransformOperator(BaseOperator):
         # Cleans up location info
         location = item['location']
         item['location'] = {
-            'latitude' : location.get('latitude', None), 
-            'longitude': location.get('longitude', None),
-            'accuracy':  location.get('accuracy', None)
+            'latitude' : location.get('latitude'), 
+            'longitude': location.get('longitude'),
+            'accuracy':  location.get('accuracy')
         }
         # Get rid of possible email addresses for privacy issues by stripping out the domain
         item["observer"] = strip_email(item.get("observer",""))
@@ -252,12 +252,12 @@ class PreprocessClassifOperator(BaseOperator):
             new["source_y"]   = value[0]["y"]
             # Spectrum tool info
             if len(value) > 1:  # The user really used this tool
-                new["spectrum_x"] = value[1].get("x", None)
-                new["spectrum_y"] = value[1].get("y", None)
-                new["spectrum_width"]  = value[1].get("width", None)
-                new["spectrum_height"] = value[1].get("height", None)
-                new["spectrum_angle"]  = value[1].get("angle", None)
-                details   = value[1].get("details", None)
+                new["spectrum_x"] = value[1].get("x")
+                new["spectrum_y"] = value[1].get("y")
+                new["spectrum_width"]  = value[1].get("width")
+                new["spectrum_height"] = value[1].get("height")
+                new["spectrum_angle"]  = value[1].get("angle")
+                details   = value[1].get("details")
                 if details:
                     new["spectrum_type"] = details[0]["value"]
                     new["spectrum_type"] = self.SPECTRUM_TYPE.get(new["spectrum_type"], new["spectrum_type"]) # remap spectrum type codes to strings
@@ -285,17 +285,18 @@ class PreprocessClassifOperator(BaseOperator):
         # Metadata coming from the Observing Platform
         key = list(classification["subject_data"].keys())[0]
         value = classification["subject_data"][key]
-        new["image_id"]         = value.get("id", None)
-        new["image_url"]        = value.get("url", None)
-        new["image_long"]       = value.get("longitude", None)
-        new["image_lat"]        = value.get("latitude", None)
-        new["image_observer"]   = value.get("observer", None)
-        new["image_comment"]    = value.get("comment", None)
-        new["image_source"]     = value.get("source", None)
-        new["image_created_at"] = value.get("created_at", None)
-        new["image_spectrum"]   = value.get("spectrum_type", None)  # original classification made by observer
+        new["image_id"]         = value.get("id")
+        new["image_url"]        = value.get("url")
+        new["image_long"]       = value.get("longitude")
+        new["image_lat"]        = value.get("latitude")
+        new["image_observer"]   = value.get("observer")
+        new["image_comment"]    = value.get("comment")
+        new["image_source"]     = value.get("source")
+        new["image_created_at"] = value.get("created_at")
+        new["image_spectrum"]   = value.get("spectrum_type")  # original classification made by observer
         if new["image_spectrum"] == "":
             new["image_spectrum"] = None
+        return new
 
 
     def _is_useful(self, classification):
@@ -305,9 +306,10 @@ class PreprocessClassifOperator(BaseOperator):
          - missing image_url metadata
          - No GPS pòsition
          '''
-        return classification["source_x"] and classification["source_y"] and \
-                classification["spectrum_type"] and classification["image_url"] and \
-                classification["image_long"] and classification["image_lat"]
+
+        return classification.get("source_x") and classification.get("source_y") and \
+                classification.get("spectrum_type") and classification.get("image_url") and \
+                classification.get("image_long") and classification.get("image_lat")
 
 
     def _insert(self, classifications):
