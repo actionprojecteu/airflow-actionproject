@@ -81,6 +81,13 @@ class ZooniverseHook(BaseHook):
 			slug     = config.schema
 			login    = config.login
 			password = config.password
+			if config.extra:
+				try:
+					extra  = json.loads(config.extra)
+				except json.decoder.JSONDecodeError:
+					self._auto_disable_subject_sets = False
+				else:
+					self._auto_disable_subject_sets = extra.get("auto_disable_ssets", False)
 			if not login:
 				raise MissingLoginError(self._conn_id)
 			if not password:
@@ -168,7 +175,10 @@ class ZooniverseHook(BaseHook):
 		Removes completed subject sets from workflow by analyzing the workflows summary
 		returned by get_workflows_summary()
 		'''
-		self.log.info(f"Trying to remove completed Subject Sets from workflows")
+		self.log.info(f"Trying to disable completed Subject Sets from workflows")
+		if not self._auto_disable_subject_sets:
+			self.log.info(f"Configuration prevents from disabling Subject Sets automatically")
+			return
 		panoptes_client, project   = self.get_conn()
 		for wsum in workflows_summary:
 			workflow = Workflow.find(wsum['id'])
@@ -178,7 +188,7 @@ class ZooniverseHook(BaseHook):
 					subject_set = SubjectSet.find(ss['id'])
 					subject_sets.append(subject_set)
 			workflow.remove_subject_sets(subject_sets)
-			self.log.info(f"Removed: {len(subject_sets)} Subject Sets from '{workflow.display_name}'")
+			self.log.info(f"Disabled: {len(subject_sets)} Subject Sets from '{workflow.display_name}'")
 
 
 	def add_subject_set(self, **kwargs):
