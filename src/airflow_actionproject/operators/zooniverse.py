@@ -20,13 +20,15 @@ import datetime
 
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
-from airflow.providers.sqlite.hooks.sqlite import SqliteHook
+#from airflow.providers.sqlite.hooks.sqlite import SqliteHook
 
 #--------------
 # local imports
 # -------------
 
 from airflow_actionproject.hooks.zooniverse import ZooniverseHook
+from airflow_actionproject.hooks.sqlite import SqliteHook
+
 
 # -----------------------
 # Module global variables
@@ -146,6 +148,7 @@ class ZooniverseDeltaOperator(BaseOperator):
 		with open(self._input_path) as fd:
 			raw_exported = json.load(fd)
 		(before,) = hook.get_first('''SELECT MAX(created_at) FROM zoo_export_t''')
+		records = []
 		for record in raw_exported:
 			created_at = datetime.datetime.strptime(record['created_at'],"%Y-%m-%d %H:%M:%S UTC")
 			if (self._start_date_threshold and created_at < self._start_date_threshold):
@@ -156,48 +159,24 @@ class ZooniverseDeltaOperator(BaseOperator):
 			record['metadata']      = json.dumps(record['metadata'])
 			record['subject_data']  = json.dumps(record['subject_data'])
 			record['subject_ids']   = json.dumps(record['subject_ids'])
-			hook.run(
-				'''
-				INSERT OR REPLACE INTO zoo_export_t (
-					classification_id,
-					user_name,
-					user_id,
-					user_ip,
-					workflow_id,
-					workflow_name,  
-					workflow_version,
-					created_at, 
-					gold_standard,  
-					expert, 
-					metadata,   
-					annotations,    
-					subject_data,
-					subject_ids
-				) VALUES (
-					:classification_id,
-					:user_name,
-					:user_id,
-					:user_ip,
-					:workflow_id,
-					:workflow_name, 
-					:workflow_version,
-					:created_at,    
-					:gold_standard, 
-					:expert,    
-					:metadata,  
-					:annotations,   
-					:subject_data,
-					:subject_ids
-				)
-				''', parameters=record)
+			records.append(record)
+		# This is my customized, optimized insert or replace method
+		hook.insert_dict_rows(
+			table        = 'zoo_export_t',
+			dict_rows    = records,
+			commit_every = 500,
+			replace      = True,
+		)			
 		(after,) = hook.get_first('''SELECT MAX(created_at) FROM zoo_export_t''')
 		timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 		differences = {'executed_at': timestamp, 'before': before, 'after': after}
 		self.log.info(f"Logging classifications differences {differences}")
-		hook.run(
-			'''
-			INSERT INTO zoo_export_window_t (executed_at, before, after) VALUES (:executed_at, :before, :after)
-			''', parameters=differences)
+		hook.insert_dict_rows(
+			table        = 'zoo_export_window_t',
+			dict_rows    = differences,
+			commit_every = 500,
+			replace      = False,
+		)		
 		(N,) = hook.get_first('''SELECT count(*) FROM zoo_export_t''')
 		self.log.info(f"Zooniverse export size contains {N} records")
 
