@@ -73,9 +73,9 @@ class SqliteHook(BaseSqliteHook):
 
 
     @staticmethod
-    def _generate_insert_sql2(table, target_fields, replace, **kwargs):
+    def _generate_insert_sql2(table, target_fields, replace,  ignore=False, **kwargs):
         """
-        Static helper method that generate the INSERT OR REPLACE SQL statement.
+        Static helper method that generate the INSERT OR REPLACE/IGNORE SQL statement.
 
         :param table: Name of the target table
         :type table: str
@@ -90,10 +90,14 @@ class SqliteHook(BaseSqliteHook):
         """
         columns = ",".join(target_fields)
         values  = ",".join([f":{column}" for column in target_fields])
-        if not replace:
-            sql = "INSERT INTO "
-        else:
+        
+        if replace:
             sql = "INSERT OR REPLACE INTO "
+        elif ignore:
+            sql = "INSERT OR IGNORE INTO "
+        else:
+            sql = "INSERT INTO "
+        
         sql += f"{table} ({columns}) VALUES ({values})"
         return sql
 
@@ -181,6 +185,70 @@ class SqliteHook(BaseSqliteHook):
                 self.log.info("Generated sql: %s", sql)
                 #for row in dict_rows:
                 #    values = {key: self._serialize_cell(value, conn) for key,value in row.items()}
+                dict_rows = tuple({key: self._serialize_cell(value, conn) for key,value in row.items()} for row in dict_rows)     
+                for i in range(N):
+                    cur.executemany(sql, dict_rows[:commit_every])
+                    conn.commit()
+                    dict_rows = dict_rows[commit_every:]
+                    #self.log.info("Saved %s slices of size %s into %s so far", i, N, table)
+                if slices_rem: 
+                    cur.executemany(sql, dict_rows)
+                    conn.commit()
+                    #self.log.info("Saved last slices of size %s into %s so far", slices_rem, table)
+        self.log.info("Done loading. Saved a total of %s rows", N)
+
+    def insert_dict_rows(self, table, dict_rows, commit_every=1000, replace=False, **kwargs):
+        """
+        A generic way to insert a set of tuples into a table,
+        a new transaction is created every commit_every rows
+
+        :param table: Name of the target table
+        :type table: str
+        :param rows: The rows to insert into the table
+        :type dict_rows: iterable of dictionaries
+        :param target_fields: The names of the columns to fill in the table
+        :type target_fields: iterable of strings
+        :param commit_every: The maximum number of rows to insert in one
+            transaction. Set to 0 to insert all rows in one transaction.
+        :type commit_every: int
+        :param replace: Whether to replace instead of insert
+        :type replace: bool
+        """
+        method = getattr(dict_rows,"keys", None)
+        if callable(method):
+            dict_rows = [dict_rows]
+        N = len(dict_rows)
+        if N == 0:
+            self.log.info("Empty dictionary list. Not writting to SQlite")
+            return
+        sql = self._generate_insert_sql2(table, dict_rows[0].keys(), replace, **kwargs)
+        self._run_many_dict_rows(dict_rows, sql, commit_every)
+
+
+    def run_many_dict_rows(self, dict_rows, sql, commit_every=1000, **kwargs):
+        method = getattr(dict_rows,"keys", None)
+        if callable(method):
+            dict_rows = [dict_rows]
+        N = len(dict_rows)
+        if N == 0:
+            self.log.info("Empty dictionary list. Not writting to SQlite")
+            return
+        self._run_many_dict_rows(dict_rows, sql, commit_every)
+
+
+    def _run_many_dict_rows(self, dict_rows, sql, commit_every, **kwargs):
+        N = len(dict_rows)
+        slices     = N // commit_every
+        slices_rem = N %  commit_every
+        if slices_rem:
+            self.log.info(f"Will execute sql with {N} rows looping {slices} times,  {commit_every} rows at a time time and a final reminder of of {slices_rem} rows")
+        else:
+            self.log.info(f"Will execute sql with {N} rows looping {slices} times, {commit_every} rows at a time")
+        with closing(self.get_conn()) as conn:
+            if self.supports_autocommit:
+                self.set_autocommit(conn, False)
+            conn.commit()
+            with closing(conn.cursor()) as cur:
                 dict_rows = tuple({key: self._serialize_cell(value, conn) for key,value in row.items()} for row in dict_rows)     
                 for i in range(N):
                     cur.executemany(sql, dict_rows[:commit_every])

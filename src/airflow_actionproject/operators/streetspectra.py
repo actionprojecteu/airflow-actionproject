@@ -24,7 +24,7 @@ import collections
 
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
-from airflow.providers.sqlite.hooks.sqlite import SqliteHook
+#from airflow.providers.sqlite.hooks.sqlite import SqliteHook
 
 
 #--------------
@@ -33,6 +33,8 @@ from airflow.providers.sqlite.hooks.sqlite import SqliteHook
 
 # This hook knows how to insert StreetSpectra metadata on subjects
 from airflow_actionproject.hooks.streetspectra import ZooSpectraHook
+from airflow_actionproject.hooks.sqlite import SqliteHook
+
 
 
 # -----------------------
@@ -314,59 +316,15 @@ class PreprocessClassifOperator(BaseOperator):
 
     def _insert(self, classifications):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
-        for classification in classifications:
-            hook.run(
-                    '''
-                    INSERT OR IGNORE INTO spectra_classification_t (
-                        classification_id   ,
-                        subject_id          ,
-                        started_at          ,
-                        finished_at         ,
-                        width               ,
-                        height              ,
-                        source_x            ,
-                        source_y            ,
-                        spectrum_x          ,
-                        spectrum_y          ,
-                        spectrum_width      ,
-                        spectrum_height     ,
-                        spectrum_angle      ,
-                        spectrum_type       ,
-                        image_id            ,
-                        image_url           ,
-                        image_long          ,
-                        image_lat           ,
-                        image_observer      ,
-                        image_comment       ,
-                        image_source        ,
-                        image_created_at    ,
-                        image_spectrum
-                    ) VALUES (
-                        :classification_id   ,
-                        :subject_id          ,
-                        :started_at          ,
-                        :finished_at         ,
-                        :width               ,
-                        :height              ,
-                        :source_x            ,
-                        :source_y            ,
-                        :spectrum_x          ,
-                        :spectrum_y          ,
-                        :spectrum_width      ,
-                        :spectrum_height     ,
-                        :spectrum_angle      ,
-                        :spectrum_type       ,
-                        :image_id            ,
-                        :image_url           ,
-                        :image_long          ,
-                        :image_lat           ,
-                        :image_observer      ,
-                        :image_comment       ,
-                        :image_source        ,
-                        :image_created_at    ,
-                        :image_spectrum
-                    )
-                    ''', parameters=classification)
+        self.log.info(f"Logging classifications differences")
+        hook.insert_dict_rows(
+            table        = 'spectra_classification_t',
+            dict_rows    = classifications,
+            commit_every = 500,
+            replace      = False,
+            ignore       = False,
+        )       
+        
 
 
     def execute(self, context):
@@ -412,16 +370,30 @@ class AggregateOperator(BaseOperator):
             ''', 
             parameters={'subject_id': subject_id}
         )
+        ## AQUI HAY QUE OPTIMIZAR
+        # for source_id, classif_id in enumerate(classif_ids, start=1):
+        #     classif_id = classif_id[0]
+        #     self.log.info(f"Subject_id={subject_id} => Classif id={classif_id} => initial source id={source_id}")
+        #     hook.run('''
+        #         UPDATE spectra_classification_t
+        #         SET source_id = :source_id
+        #         WHERE subject_id = :subject_id AND classification_id = :classif_id
+        #         ''', 
+        #         parameters={'classif_id': classif_id, 'source_id': source_id, 'subject_id': subject_id}
+        #     )
+        initial_classifications = list()
         for source_id, classif_id in enumerate(classif_ids, start=1):
-            classif_id = classif_id[0]
-            self.log.info(f"Subject_id={subject_id} => Classif id={classif_id} => initial source id={source_id}")
-            hook.run('''
+            initial_classifications.append({'classif_id': classif_id[0], 'source_id': source_id, 'subject_id': subject_id})
+        hook.run_many_dict_rows(
+            dict_rows = initial_classifications,
+            sql = '''
                 UPDATE spectra_classification_t
                 SET source_id = :source_id
                 WHERE subject_id = :subject_id AND classification_id = :classif_id
-                ''', 
-                parameters={'classif_id': classif_id, 'source_id': source_id, 'subject_id': subject_id}
-            )
+            ''',
+            commit_every = 500,
+        )
+        
 
     
     def _cluster(self, subject_id, hook):
@@ -434,6 +406,7 @@ class AggregateOperator(BaseOperator):
             ''', 
             parameters={'subject_id': subject_id}
         )
+        updated_classifications = list()
         for clsf1, x1, y1 in info1:
             if x1 is None or y1 is None:
                 continue
@@ -457,13 +430,25 @@ class AggregateOperator(BaseOperator):
                             ''',
                             parameters={'classif_id': clsf1, 'subject_id': subject_id})
                         self.log.info(f"Subject_id={subject_id} => clsf1={clsf1}, clsf2={clsf2} => source id from {source2} to {source1} inhertited from clsf1 {clsf1}")
-                        hook.run('''
-                            UPDATE spectra_classification_t
-                            SET source_id = :source_id
-                            WHERE subject_id = :subject_id AND classification_id = :classif_id
-                            ''', 
-                            parameters={'classif_id': clsf2, 'source_id': source1, 'subject_id': subject_id}
-                        )
+                        updated_classifications.append({'classif_id': clsf2, 'source_id': source1, 'subject_id': subject_id})
+                        # Optimized write here
+                        # hook.run('''
+                        #     UPDATE spectra_classification_t
+                        #     SET source_id = :source_id
+                        #     WHERE subject_id = :subject_id AND classification_id = :classif_id
+                        #     ''', 
+                        #     parameters={'classif_id': clsf2, 'source_id': source1, 'subject_id': subject_id}
+                        # )
+
+        hook.run_many_dict_rows(
+            dict_rows = updated_classifications,
+            sql = '''
+                UPDATE spectra_classification_t
+                SET source_id = :source_id
+                WHERE subject_id = :subject_id AND classification_id = :classif_id
+            ''',
+            commit_every = 500,
+        )
 
 
     def _classify(self, subject_id, hook):
@@ -597,26 +582,46 @@ class AggregateOperator(BaseOperator):
             GROUP BY subject_id, source_id
             '''
         )
-        for classification, kappa, n_users in final_classifications:
-            for source in classification:
+        flattened_final_classifications = list()
+        for ratings, kappa, n_users in final_classifications:
+            for source in ratings:
                 #self.log.info(source)
                 source['kappa'] = kappa          # Common to all classifications in the subject
                 source['users_count'] = n_users  # Common to all classifications in the subject
-                hook.run('''
-                    UPDATE spectra_aggregate_t
-                    SET 
-                        spectrum_type  = :spectrum_type,
-                        spectrum_dist  = :spectrum_dist,
-                        spectrum_users = :spectrum_users,
-                        spectrum_count = :spectrum_count,
-                        rejection_tag  = :rejection_tag,
-                        kappa          = :kappa,
-                        users_count    = :users_count
-                    WHERE subject_id = :subject_id
-                    AND source_id    = :source_id
-                    ''',
-                    parameters=source
-                )
+                flattened_final_classifications.append(source)  
+                # Optimize update hewre
+                # hook.run('''
+                #     UPDATE spectra_aggregate_t
+                #     SET 
+                #         spectrum_type  = :spectrum_type,
+                #         spectrum_dist  = :spectrum_dist,
+                #         spectrum_users = :spectrum_users,
+                #         spectrum_count = :spectrum_count,
+                #         rejection_tag  = :rejection_tag,
+                #         kappa          = :kappa,
+                #         users_count    = :users_count
+                #     WHERE subject_id = :subject_id
+                #     AND source_id    = :source_id
+                #     ''',
+                #     parameters=source
+                # )
+        hook.run_many_dict_rows(
+            dict_rows = flattened_final_classifications,
+            sql = '''
+                UPDATE spectra_aggregate_t
+                SET 
+                    spectrum_type  = :spectrum_type,
+                    spectrum_dist  = :spectrum_dist,
+                    spectrum_users = :spectrum_users,
+                    spectrum_count = :spectrum_count,
+                    rejection_tag  = :rejection_tag,
+                    kappa          = :kappa,
+                    users_count    = :users_count
+                WHERE subject_id = :subject_id
+                AND source_id    = :source_id
+                ''',
+            commit_every = 500,
+        )
 
 
     def execute(self, context):
