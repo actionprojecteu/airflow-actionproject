@@ -370,31 +370,11 @@ class AggregateOperator(BaseOperator):
             ''', 
             parameters={'subject_id': subject_id}
         )
-        ## AQUI HAY QUE OPTIMIZAR
-        # for source_id, classif_id in enumerate(classif_ids, start=1):
-        #     classif_id = classif_id[0]
-        #     self.log.info(f"Subject_id={subject_id} => Classif id={classif_id} => initial source id={source_id}")
-        #     hook.run('''
-        #         UPDATE spectra_classification_t
-        #         SET source_id = :source_id
-        #         WHERE subject_id = :subject_id AND classification_id = :classif_id
-        #         ''', 
-        #         parameters={'classif_id': classif_id, 'source_id': source_id, 'subject_id': subject_id}
-        #     )
         initial_classifications = list()
         for source_id, classif_id in enumerate(classif_ids, start=1):
             initial_classifications.append({'classif_id': classif_id[0], 'source_id': source_id, 'subject_id': subject_id})
-        hook.run_many_dict_rows(
-            dict_rows = initial_classifications,
-            sql = '''
-                UPDATE spectra_classification_t
-                SET source_id = :source_id
-                WHERE subject_id = :subject_id AND classification_id = :classif_id
-            ''',
-            commit_every = 500,
-        )
-        
-
+        return initial_classifications
+    
     
     def _cluster(self, subject_id, hook):
         '''Examine each source and refer it to the same id if they are near enough'''
@@ -431,24 +411,8 @@ class AggregateOperator(BaseOperator):
                             parameters={'classif_id': clsf1, 'subject_id': subject_id})
                         self.log.info(f"Subject_id={subject_id} => clsf1={clsf1}, clsf2={clsf2} => source id from {source2} to {source1} inhertited from clsf1 {clsf1}")
                         updated_classifications.append({'classif_id': clsf2, 'source_id': source1, 'subject_id': subject_id})
-                        # Optimized write here
-                        # hook.run('''
-                        #     UPDATE spectra_classification_t
-                        #     SET source_id = :source_id
-                        #     WHERE subject_id = :subject_id AND classification_id = :classif_id
-                        #     ''', 
-                        #     parameters={'classif_id': clsf2, 'source_id': source1, 'subject_id': subject_id}
-                        # )
-
-        hook.run_many_dict_rows(
-            dict_rows = updated_classifications,
-            sql = '''
-                UPDATE spectra_classification_t
-                SET source_id = :source_id
-                WHERE subject_id = :subject_id AND classification_id = :classif_id
-            ''',
-            commit_every = 500,
-        )
+        return updated_classifications
+    
 
 
     def _classify(self, subject_id, hook):
@@ -589,22 +553,6 @@ class AggregateOperator(BaseOperator):
                 source['kappa'] = kappa          # Common to all classifications in the subject
                 source['users_count'] = n_users  # Common to all classifications in the subject
                 flattened_final_classifications.append(source)  
-                # Optimize update hewre
-                # hook.run('''
-                #     UPDATE spectra_aggregate_t
-                #     SET 
-                #         spectrum_type  = :spectrum_type,
-                #         spectrum_dist  = :spectrum_dist,
-                #         spectrum_users = :spectrum_users,
-                #         spectrum_count = :spectrum_count,
-                #         rejection_tag  = :rejection_tag,
-                #         kappa          = :kappa,
-                #         users_count    = :users_count
-                #     WHERE subject_id = :subject_id
-                #     AND source_id    = :source_id
-                #     ''',
-                #     parameters=source
-                # )
         hook.run_many_dict_rows(
             dict_rows = flattened_final_classifications,
             sql = '''
@@ -632,9 +580,33 @@ class AggregateOperator(BaseOperator):
             FROM spectra_classification_t 
             WHERE source_id IS NULL
         ''')
+        # We perform all DB writes in blocks, it is so much efficient
+        initial_classifications = list()
         for (subject_id,) in subjects:
-            self._setup_source_ids(subject_id, hook)
-            self._cluster(subject_id, hook)
+            initial_classifications.extend(self._setup_source_ids(subject_id, hook))
+        hook.run_many_dict_rows(
+            dict_rows = initial_classifications,
+            sql = '''
+                UPDATE spectra_classification_t
+                SET source_id = :source_id
+                WHERE subject_id = :subject_id AND classification_id = :classif_id
+            ''',
+            commit_every = 500,
+        )
+        updated_classifications = list()
+        for (subject_id,) in subjects:
+            updated_classifications.extend(self._cluster(subject_id, hook))
+        hook.run_many_dict_rows(
+            dict_rows = updated_classifications,
+            sql = '''
+                UPDATE spectra_classification_t
+                SET source_id = :source_id
+                WHERE subject_id = :subject_id AND classification_id = :classif_id
+            ''',
+            commit_every = 500,
+        )
+
+        for (subject_id,) in subjects:
             ratings, kappa, n_users = self._classify(subject_id, hook)
             final_classifications.append((ratings,kappa,n_users))
         if subjects:
