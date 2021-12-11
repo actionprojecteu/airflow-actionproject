@@ -359,59 +359,79 @@ class AggregateOperator(BaseOperator):
         super().__init__(**kwargs)
         self._conn_id     = conn_id
 
-    def _setup_source_ids(self, subject_id, hook):
+    def _setup_source_ids(self, hook):
         '''Assume that each user has classified a different source within a subject'''
-        classif_ids = hook.get_records('''
-            SELECT classification_id 
+        self.log.info("Assigning different source ids to unclustered classifications")
+        various_ids = hook.get_records('''
+            SELECT subject_id, classification_id 
             FROM spectra_classification_t
-            WHERE subject_id = :subject_id
-            AND source_id IS NULL
-            ORDER BY classification_id ASC
+            WHERE source_id IS NULL
             ''', 
-            parameters={'subject_id': subject_id}
         )
+        subjects = dict()
+        for subject_id, classification_id in various_ids:
+            classification_ids = subjects.get(subject_id,[])
+            classification_ids.append(classification_id)
+            subjects[subject_id] = classification_ids
         initial_classifications = list()
-        for source_id, classif_id in enumerate(classif_ids, start=1):
-            initial_classifications.append({'classif_id': classif_id[0], 'source_id': source_id, 'subject_id': subject_id})
-        return initial_classifications
-    
-    
-    def _cluster(self, subject_id, hook):
-        '''Examine each source and refer it to the same id if they are near enough'''
-        info1 = hook.get_records('''
-            SELECT classification_id, source_x, source_y
-            FROM spectra_classification_t 
-            WHERE subject_id = :subject_id
-            ORDER BY classification_id ASC
-            ''', 
-            parameters={'subject_id': subject_id}
+        for subject_id, classification_ids in subjects.items():
+            for source_id, classification_id in enumerate(classification_ids, start=1):
+                initial_classifications.append({'classif_id': classification_id, 'source_id': source_id, 'subject_id': subject_id})
+        hook.run_many_dict_rows(
+            dict_rows = initial_classifications,
+            sql = '''
+                UPDATE spectra_classification_t
+                SET source_id = :source_id
+                WHERE subject_id = :subject_id AND classification_id = :classif_id
+            ''',
+            commit_every = 500,
         )
+
+
+    def _cluster(self, hook):
+        '''Examine each source and refer it to the same id if they are near enough'''
+        self.log.info("Clustering different source ids in the same subject id")
+        info1 = hook.get_records('''
+            SELECT a.subject_id, a.classification_id, a.source_id, b.classification_id, b.source_id,
+            (a.source_x-b.source_x)*(a.source_x-b.source_x)+(a.source_y-b.source_y)*(a.source_y-b.source_y) AS distance
+            FROM spectra_classification_t AS a
+            INNER JOIN spectra_classification_t AS b 
+            ON a.subject_id = b.subject_id AND b.classification_id > a.classification_id 
+            AND a.clustered IS NULL  AND b.clustered IS NULL
+            WHERE a.source_x IS NOT NULL AND a.source_y IS NOT NULL AND b.source_x IS NOT NULL AND b.source_y IS NOT NULL
+            AND distance < :distance
+            ''', 
+            parameters={'distance': self.RADIUS**2 }
+        )
+
+        clustered = dict()
+        for subject_id, classification_id_a,  source_id_a, classification_id_b, source_id_b, distance in info1:
+            info2 = clustered.get(subject_id, set())
+            info2.add(tuple([classification_id_a, source_id_a]))
+            info2.add(tuple([classification_id_b, source_id_b]))
+            clustered[subject_id] = info2
+
+        # transform it into a list of suitable classification ifds and minimum source id for each subject id
+        # Several transfromation steps here here:
+        # - split into two lists, one with classifcation ids and the second list with the source ids
+        # - transfrom the second list into the minimun source id list
+        # - transform this into a list of dictionary entries suitable fro SQLite writting
         updated_classifications = list()
-        for clsf1, x1, y1 in info1:
-            if x1 is None or y1 is None:
-                continue
-            info2 = hook.get_records('''
-                SELECT classification_id, source_x, source_y, source_id
-                FROM spectra_classification_t 
-                WHERE subject_id = :subject_id AND classification_id > :classif_id
-                ''', 
-                parameters={'classif_id': clsf1, 'subject_id': subject_id}
-            )
-            if info2:
-                for clsf2, x2, y2, source2 in info2:
-                    if x2 is None or y2 is None:
-                        continue
-                    distance = math.sqrt((x1-x2)**2 + (y1-y2)**2)
-                    if distance < self.RADIUS:
-                        (source1,) = hook.get_first('''
-                            SELECT source_id 
-                            FROM spectra_classification_t 
-                            WHERE subject_id = :subject_id AND classification_id = :classif_id
-                            ''',
-                            parameters={'classif_id': clsf1, 'subject_id': subject_id})
-                        self.log.info(f"Subject_id={subject_id} => clsf1={clsf1}, clsf2={clsf2} => source id from {source2} to {source1} inhertited from clsf1 {clsf1}")
-                        updated_classifications.append({'classif_id': clsf2, 'source_id': source1, 'subject_id': subject_id})
-        return updated_classifications
+        for subject_id, value in clustered.items():
+            alist = list(zip(*tuple(value)))
+            alist[-1] = list([min(alist[-1])]*len(alist[0]))
+            alist = [{'classification_id': t[0], 'source_id': t[1]} for t in zip(alist[0], alist[1])]
+            updated_classifications.extend(alist)
+       
+        hook.run_many_dict_rows(
+            dict_rows = updated_classifications,
+            sql = '''
+                UPDATE spectra_classification_t
+                SET source_id = :source_id, clustered = 1
+                WHERE classification_id = :classification_id
+            ''',
+            commit_every = 500,
+        )
     
 
 
@@ -574,38 +594,19 @@ class AggregateOperator(BaseOperator):
 
     def execute(self, context):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
-        final_classifications = list()
         subjects = hook.get_records('''
             SELECT DISTINCT subject_id 
             FROM spectra_classification_t 
             WHERE source_id IS NULL
         ''')
-        # We perform all DB writes in blocks, it is so much efficient
-        initial_classifications = list()
-        for (subject_id,) in subjects:
-            initial_classifications.extend(self._setup_source_ids(subject_id, hook))
-        hook.run_many_dict_rows(
-            dict_rows = initial_classifications,
-            sql = '''
-                UPDATE spectra_classification_t
-                SET source_id = :source_id
-                WHERE subject_id = :subject_id AND classification_id = :classif_id
-            ''',
-            commit_every = 500,
-        )
-        updated_classifications = list()
-        for (subject_id,) in subjects:
-            updated_classifications.extend(self._cluster(subject_id, hook))
-        hook.run_many_dict_rows(
-            dict_rows = updated_classifications,
-            sql = '''
-                UPDATE spectra_classification_t
-                SET source_id = :source_id
-                WHERE subject_id = :subject_id AND classification_id = :classif_id
-            ''',
-            commit_every = 500,
-        )
+        # A partir de aqui, los source_ids ya no son nulos
+        self._setup_source_ids(hook)
+        # A partir de aqui, clustered = 1
+        self._cluster(hook)
+        return
 
+     
+        final_classifications = list()
         for (subject_id,) in subjects:
             ratings, kappa, n_users = self._classify(subject_id, hook)
             final_classifications.append((ratings,kappa,n_users))
