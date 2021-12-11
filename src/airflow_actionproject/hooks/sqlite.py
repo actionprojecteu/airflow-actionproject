@@ -259,5 +259,3 @@ class SqliteHook(BaseSqliteHook):
                     cur.executemany(sql, dict_rows)
                     conn.commit()
                     #self.log.info("Saved last slices of size %s into %s so far", slices_rem, table)
-        self.log.info("Done loading. Saved a total of %s rows", N)
-

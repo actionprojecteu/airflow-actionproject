@@ -363,7 +363,7 @@ class AggregateOperator(BaseOperator):
         '''Assume that each user has classified a different source within a subject'''
         self.log.info("Assigning different source ids to unclustered classifications")
         various_ids = hook.get_records('''
-            SELECT subject_id, classification_id 
+            SELECT subject_id, classification_id
             FROM spectra_classification_t
             WHERE source_id IS NULL
             ORDER BY subject_id ASC, classification_id ASC
@@ -611,8 +611,8 @@ class AggregateOperator(BaseOperator):
         # A partir de aqui, los source_ids ya no son nulos
         self._setup_source_ids(hook)
         # A partir de aqui, clustered = 1
-        return
         self._cluster(hook)
+        return
         self._classify(hook)
 
 
