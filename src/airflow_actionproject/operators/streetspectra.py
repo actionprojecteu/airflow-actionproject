@@ -480,6 +480,67 @@ class AggregateOperator(BaseOperator):
         return ratings, kappa, n_users
 
 
+    def _classify(self, hook):
+        ratings = list()
+        info1 = hook.get_records('''
+            SELECT DISTINCT subject_id, source_id, spectrum_type
+            FROM spectra_classification_t 
+            WHERE clustered = :clustered
+            ''',
+            parameters={'clustered':1}
+        )
+        counters = dict()
+        for subject_id, source_id, spectrum_type in info1:
+            key = tuple([subject_id, source_id])
+            spectra_type = counters.get(key,[])
+            spectra_type.append(spectrum_type)
+            counters[key] = spectra_type
+        # Compute ratings per source_id per subject
+        ratings = dict()
+        for key, spectra_type in counters.items():
+            subject_id = key[0]
+            source_id  = key[1]
+            counter = collections.Counter(spectra_type)
+            votes = counter.most_common()
+            self.log.info(f" ############## VOTES {votes}")
+            if len(votes) > 1 and votes[0][1] == votes[1][1]:
+                spectrum_type  = None
+                spectrum_count = votes[0][1]
+                rejection_tag  = 'Ambiguous'
+            elif votes[0][0] is None:
+                 spectrum_type  = None
+                 spectrum_count = 0
+                 rejection_tag  = 'Never classified'
+            else:
+                spectrum_type  = votes[0][0]
+                spectrum_count = votes[0][1]
+                rejection_tag  = None
+            rating = {
+                'subject_id'    : subject_id, 
+                'source_id'     : source_id, 
+                'spectrum_type' : spectrum_type,
+                'spectrum_count': spectrum_count,
+                'spectrum_users': sum(counter[key] for key in counter),
+                'spectrum_dist' : str(votes), 
+                'rejection_tag' : rejection_tag,
+                'counter'       : counter,
+            }
+            rateds = ratings.get(key,[])
+            rateds.append(rating)
+            ratings[key] = rateds
+        # Compute Fleiss' Kappa per source_id per subject
+        final_classifications = list()
+        for key, rateds in ratings.items():
+            kappa, n_users = self._kappa_fleiss(self.CATEGORIES, rateds)
+            for rated in rateds:
+                rated['kappa']       = kappa
+                rated['users_count'] = n_users
+                rated['clustered']   = 2 # Changed the state so as not to process all aver again
+            final_classifications.extend(rateds)
+        self._update(final_classifications, hook)
+    
+
+
     def _kappa_fleiss(self, categories, ratings):
         '''
         Calculates Fleiss' kappa.
@@ -563,15 +624,19 @@ class AggregateOperator(BaseOperator):
             GROUP BY subject_id, source_id
             '''
         )
-        flattened_final_classifications = list()
-        for ratings, kappa, n_users in final_classifications:
-            for source in ratings:
-                #self.log.info(source)
-                source['kappa'] = kappa          # Common to all classifications in the subject
-                source['users_count'] = n_users  # Common to all classifications in the subject
-                flattened_final_classifications.append(source)  
         hook.run_many_dict_rows(
-            dict_rows = flattened_final_classifications,
+            dict_rows = final_classifications,
+            sql = '''
+                UPDATE spectra_classification_t
+                SET 
+                    clustered      = :clustered
+                WHERE subject_id = :subject_id
+                AND source_id    = :source_id
+                ''',
+            commit_every = 500,
+        )
+        hook.run_many_dict_rows(
+            dict_rows = final_classifications,
             sql = '''
                 UPDATE spectra_aggregate_t
                 SET 
@@ -591,24 +656,11 @@ class AggregateOperator(BaseOperator):
 
     def execute(self, context):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
-        subjects = hook.get_records('''
-            SELECT DISTINCT subject_id 
-            FROM spectra_classification_t 
-            WHERE source_id IS NULL
-        ''')
         # A partir de aqui, los source_ids ya no son nulos
         self._setup_source_ids(hook)
         # A partir de aqui, clustered = 1
         self._cluster(hook)
-        return
-
-     
-        final_classifications = list()
-        for (subject_id,) in subjects:
-            ratings, kappa, n_users = self._classify(subject_id, hook)
-            final_classifications.append((ratings,kappa,n_users))
-        if subjects:
-            self._update(final_classifications, hook)
+        self._classify(hook)
 
 
 class IndividualCSVExportOperator(BaseOperator):
