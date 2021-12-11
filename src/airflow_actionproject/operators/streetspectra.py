@@ -351,7 +351,7 @@ class AggregateOperator(BaseOperator):
     classification analysis takes place.
     '''
 
-    RADIUS = 10  # light source dispersion radius in pixels
+    RADIUS = 13  # light source dispersion radius in pixels
     CATEGORIES = ('HPS','MV','LED','MH', None)
 
     @apply_defaults
@@ -366,6 +366,7 @@ class AggregateOperator(BaseOperator):
             SELECT subject_id, classification_id 
             FROM spectra_classification_t
             WHERE source_id IS NULL
+            ORDER BY subject_id ASC, classification_id ASC
             ''', 
         )
         subjects = dict()
@@ -429,55 +430,6 @@ class AggregateOperator(BaseOperator):
             ''',
             commit_every = 500,
         )
-    
-
-
-    def _classify(self, subject_id, hook):
-        ratings = list()
-        source_ids = hook.get_records('''
-                SELECT DISTINCT source_id
-                FROM spectra_classification_t 
-                WHERE subject_id = :subject_id
-                ''', 
-                parameters={'subject_id': subject_id}
-            )
-        
-        for (source_id,) in source_ids:
-            spectra_type = hook.get_records('''
-                    SELECT spectrum_type
-                    FROM spectra_classification_t 
-                    WHERE subject_id = :subject_id AND source_id = :source_id
-                    ''', 
-                    parameters={'source_id': source_id, 'subject_id': subject_id}
-                )
-            counter = collections.Counter(s[0] for s in spectra_type)
-            votes = counter.most_common()
-            self.log.info(f" ############## VOTES {votes}")
-            if len(votes) > 1 and votes[0][1] == votes[1][1]:
-                spectrum_type = None
-                spectrum_count = votes[0][1]
-                rejection_tag = 'Ambiguous'
-            elif votes[0][0] is None:
-                 spectrum_type = None
-                 spectrum_count = 0
-                 rejection_tag = 'Never classified'
-            else:
-                spectrum_type  = votes[0][0]
-                spectrum_count = votes[0][1]
-                rejection_tag = None
-            rating = {
-                'subject_id'    : subject_id, 
-                'source_id'     : source_id, 
-                'spectrum_type' : spectrum_type,
-                'spectrum_count': spectrum_count,
-                'spectrum_users': sum(counter[key] for key in counter),
-                'spectrum_dist' : str(votes), 
-                'rejection_tag' : rejection_tag,
-                'counter'       : counter,
-            }
-            ratings.append(rating)
-        kappa, n_users = self._kappa_fleiss(self.CATEGORIES, ratings)
-        return ratings, kappa, n_users
 
 
     def _classify(self, hook):
@@ -502,7 +454,7 @@ class AggregateOperator(BaseOperator):
             source_id  = key[1]
             counter = collections.Counter(spectra_type)
             votes = counter.most_common()
-            self.log.info(f" ############## VOTES {votes}")
+            self.log.info(f" VOTES {votes}")
             if len(votes) > 1 and votes[0][1] == votes[1][1]:
                 spectrum_type  = None
                 spectrum_count = votes[0][1]
@@ -659,6 +611,7 @@ class AggregateOperator(BaseOperator):
         # A partir de aqui, los source_ids ya no son nulos
         self._setup_source_ids(hook)
         # A partir de aqui, clustered = 1
+        return
         self._cluster(hook)
         self._classify(hook)
 
