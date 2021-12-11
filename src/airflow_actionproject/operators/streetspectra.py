@@ -403,14 +403,12 @@ class AggregateOperator(BaseOperator):
             ''', 
             parameters={'distance': self.RADIUS**2 }
         )
-
         clustered = dict()
         for subject_id, classification_id_a,  source_id_a, classification_id_b, source_id_b, distance in info1:
             info2 = clustered.get(subject_id, set())
             info2.add(tuple([classification_id_a, source_id_a]))
             info2.add(tuple([classification_id_b, source_id_b]))
             clustered[subject_id] = info2
-
         # transform it into a list of suitable classification ifds and minimum source id for each subject id
         # Several transfromation steps here here:
         # - split into two lists, one with classifcation ids and the second list with the source ids
@@ -422,7 +420,6 @@ class AggregateOperator(BaseOperator):
             alist[-1] = list([min(alist[-1])]*len(alist[0]))
             alist = [{'classification_id': t[0], 'source_id': t[1]} for t in zip(alist[0], alist[1])]
             updated_classifications.extend(alist)
-       
         hook.run_many_dict_rows(
             dict_rows = updated_classifications,
             sql = '''
