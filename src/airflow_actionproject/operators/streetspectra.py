@@ -612,7 +612,6 @@ class AggregateOperator(BaseOperator):
         self._setup_source_ids(hook)
         # A partir de aqui, clustered = 1
         self._cluster(hook)
-        return
         self._classify(hook)
 
 
