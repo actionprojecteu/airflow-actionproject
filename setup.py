@@ -15,7 +15,11 @@ DESCRIPTION  = 'Airflow components library for ACTION StreetSpectra',
 LICENSE      = 'MIT'
 KEYWORDS     = 'Astronomy Python CitizenScience LightPollution'
 URL          = 'https://github.com/actionprojecteu/airflow-actionproject/'
-DEPENDENCIES = ["panoptes-client"]
+DEPENDENCIES = [
+    "panoptes-client",  # Access to Zooniverse
+    "scikit-learn",     # Clustering algorithms
+    "statsmodels",      # Fleiss' Kappa
+]
 
 CLASSIFIERS  = [
     'Environment :: Console',

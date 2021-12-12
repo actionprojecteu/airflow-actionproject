@@ -4,6 +4,9 @@ Short-term
 	- https://machinelearningmastery.com/clustering-algorithms-with-python/
 	- https://scikit-learn.org/stable/modules/clustering.html
 
+* Fleiss kappa
+https://stackoverflow.com/questions/51919897/is-fleiss-kappa-a-reliable-measure-for-interannotator-agreement-the-following-r
+https://www.statsmodels.org/devel/install.html
 
 Test cases
 ==========

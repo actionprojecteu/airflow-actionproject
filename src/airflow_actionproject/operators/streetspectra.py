@@ -26,6 +26,12 @@ from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 #from airflow.providers.sqlite.hooks.sqlite import SqliteHook
 
+# -------------------
+# Third party imports
+# -------------------
+
+import numpy as np
+import sklearn.cluster as cluster
 
 #--------------
 # local imports
@@ -53,8 +59,6 @@ def strip_email(nickname):
     if matchobj:
         result = matchobj.groups(1)[0]
     return result
-
-
 
 
 # ----------------
@@ -351,7 +355,7 @@ class AggregateOperator(BaseOperator):
     classification analysis takes place.
     '''
 
-    RADIUS = 13  # light source dispersion radius in pixels
+    RADIUS = 15  # light source dispersion radius in pixels
     CATEGORIES = ('HPS','MV','LED','MH', None)
 
     @apply_defaults
@@ -359,77 +363,54 @@ class AggregateOperator(BaseOperator):
         super().__init__(**kwargs)
         self._conn_id     = conn_id
 
-    def _setup_source_ids(self, hook):
-        '''Assume that each user has classified a different source within a subject'''
-        self.log.info("Assigning different source ids to unclustered classifications")
-        various_ids = hook.get_records('''
-            SELECT subject_id, classification_id
-            FROM spectra_classification_t
-            WHERE source_id IS NULL
-            ORDER BY subject_id ASC, classification_id ASC
-            ''', 
-        )
-        subjects = dict()
-        for subject_id, classification_id in various_ids:
-            classification_ids = subjects.get(subject_id,[])
-            classification_ids.append(classification_id)
-            subjects[subject_id] = classification_ids
-        initial_classifications = list()
-        for subject_id, classification_ids in subjects.items():
-            for source_id, classification_id in enumerate(classification_ids, start=1):
-                initial_classifications.append({'classif_id': classification_id, 'source_id': source_id, 'subject_id': subject_id})
-        hook.run_many_dict_rows(
-            dict_rows = initial_classifications,
-            sql = '''
-                UPDATE spectra_classification_t
-                SET source_id = :source_id
-                WHERE subject_id = :subject_id AND classification_id = :classif_id
-            ''',
-            commit_every = 500,
-        )
-
 
     def _cluster(self, hook):
-        '''Examine each source and refer it to the same id if they are near enough'''
-        self.log.info("Clustering different source ids in the same subject id")
-        info1 = hook.get_records('''
-            SELECT a.subject_id, a.classification_id, a.source_id, b.classification_id, b.source_id,
-            (a.source_x-b.source_x)*(a.source_x-b.source_x)+(a.source_y-b.source_y)*(a.source_y-b.source_y) AS distance
-            FROM spectra_classification_t AS a
-            INNER JOIN spectra_classification_t AS b 
-            ON a.subject_id = b.subject_id AND b.classification_id > a.classification_id 
-            AND a.clustered IS NULL  AND b.clustered IS NULL
-            WHERE a.source_x IS NOT NULL AND a.source_y IS NOT NULL AND b.source_x IS NOT NULL AND b.source_y IS NOT NULL
-            AND distance < :distance
-            ''', 
-            parameters={'distance': self.RADIUS**2 }
-        )
-        clustered = dict()
-        for subject_id, classification_id_a,  source_id_a, classification_id_b, source_id_b, distance in info1:
-            info2 = clustered.get(subject_id, set())
-            info2.add(tuple([classification_id_a, source_id_a]))
-            info2.add(tuple([classification_id_b, source_id_b]))
-            clustered[subject_id] = info2
-        # transform it into a list of suitable classification ifds and minimum source id for each subject id
-        # Several transfromation steps here here:
-        # - split into two lists, one with classifcation ids and the second list with the source ids
-        # - transfrom the second list into the minimun source id list
-        # - transform this into a list of dictionary entries suitable fro SQLite writting
-        updated_classifications = list()
-        for subject_id, value in clustered.items():
-            alist = list(zip(*tuple(value)))
-            alist[-1] = list([min(alist[-1])]*len(alist[0]))
-            alist = [{'classification_id': t[0], 'source_id': t[1]} for t in zip(alist[0], alist[1])]
-            updated_classifications.extend(alist)
+        '''Perform clustering analysis over source light selection'''
+        user_selections = hook.get_records('''
+            SELECT subject_id, source_x, source_y
+            FROM spectra_classification_t
+            WHERE source_id IS NULL
+        ''')
+        classifications_per_subject = dict()
+        for subject_id, source_x, source_y in user_selections:
+            coordinates = classifications_per_subject.get(subject_id, [])
+            coordinates.append((source_x, source_y))
+            classifications_per_subject[subject_id] = coordinates
+        clustered_classifications = list()
+        for subject_id, coordinates in classifications_per_subject.items():
+            N_Classifications = len(coordinates)
+            if N_Classifications < 2:
+                self.log.debug(f"Skipping cluster analysis in subject {subject_id} [N = {N_Classifications}]")
+                clustered_classifications.append({'source_id': 1, 'source_x':coordinates[0][0] , 'source_y':coordinates[0][1]})
+            else:
+                # Define the model
+                coordinates = np.array(coordinates)
+                model = cluster.DBSCAN(eps=self.RADIUS, min_samples=2)
+                # Fit the model and predict clusters
+                yhat = model.fit_predict(coordinates)
+                # retrieve unique clusters
+                clusters = np.unique(yhat)
+                self.log.info(f"Subject {subject_id}: {len(clusters)} clusters from {N_Classifications} classifications, ids: {clusters}")
+                # create scatter plot for samples from each cluster
+                for cl in clusters:
+                    # get row indexes for samples with this cluster
+                    row_ix = np.where(yhat == cl)
+                    X = coordinates[row_ix, 0][0]; Y = coordinates[row_ix, 1][0]
+                    alist = np.column_stack((X,Y))
+                    alist = list( map(lambda t: {'source_id': cl+1 if cl>-1 else cl, 'source_x':t[0], 'source_y': t[1]}, alist))
+                    clustered_classifications.extend(alist)
         hook.run_many_dict_rows(
-            dict_rows = updated_classifications,
+            dict_rows = clustered_classifications,
             sql = '''
                 UPDATE spectra_classification_t
-                SET source_id = :source_id, clustered = 1
-                WHERE classification_id = :classification_id
-            ''',
+                SET 
+                    source_id    = :source_id
+                WHERE source_x   = :source_x
+                AND  source_y    = :source_y
+                ''',
             commit_every = 500,
         )
+
 
 
     def _classify(self, hook):
@@ -437,9 +418,8 @@ class AggregateOperator(BaseOperator):
         info1 = hook.get_records('''
             SELECT DISTINCT subject_id, source_id, spectrum_type
             FROM spectra_classification_t 
-            WHERE clustered = :clustered
+            WHERE clustered IS NULL
             ''',
-            parameters={'clustered':1}
         )
         counters = dict()
         for subject_id, source_id, spectrum_type in info1:
@@ -608,11 +588,8 @@ class AggregateOperator(BaseOperator):
 
     def execute(self, context):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
-        # A partir de aqui, los source_ids ya no son nulos
-        self._setup_source_ids(hook)
-        # A partir de aqui, clustered = 1
         self._cluster(hook)
-        self._classify(hook)
+        #self._classify(hook)
 
 
 class IndividualCSVExportOperator(BaseOperator):
