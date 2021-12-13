@@ -418,7 +418,7 @@ class AggregateOperator(BaseOperator):
         info1 = hook.get_records('''
             SELECT DISTINCT subject_id, source_id, spectrum_type
             FROM spectra_classification_t 
-            WHERE clustered IS NULL
+            WHERE aggregated IS NULL AND source_id IS NOT NULL
             ''',
         )
         counters = dict()
@@ -427,7 +427,7 @@ class AggregateOperator(BaseOperator):
             spectra_type = counters.get(key,[])
             spectra_type.append(spectrum_type)
             counters[key] = spectra_type
-        # Compute ratings per source_id per subject
+        # Compute ratings per source_id per subject_id
         ratings = dict()
         for key, spectra_type in counters.items():
             subject_id = key[0]
@@ -435,7 +435,11 @@ class AggregateOperator(BaseOperator):
             counter = collections.Counter(spectra_type)
             votes = counter.most_common()
             self.log.info(f" VOTES {votes}")
-            if len(votes) > 1 and votes[0][1] == votes[1][1]:
+            if source_id == -1:
+                spectrum_type  = votes[0][0]    # Not reliable
+                spectrum_count = votes[0][1]
+                rejection_tag  = 'Out of cluster'
+            elif len(votes) > 1 and votes[0][1] == votes[1][1]:
                 spectrum_type  = None
                 spectrum_count = votes[0][1]
                 rejection_tag  = 'Ambiguous'
@@ -456,6 +460,7 @@ class AggregateOperator(BaseOperator):
                 'spectrum_dist' : str(votes), 
                 'rejection_tag' : rejection_tag,
                 'counter'       : counter,
+                'aggregated'    : 1,
             }
             rateds = ratings.get(key,[])
             rateds.append(rating)
@@ -467,7 +472,6 @@ class AggregateOperator(BaseOperator):
             for rated in rateds:
                 rated['kappa']       = kappa
                 rated['users_count'] = n_users
-                rated['clustered']   = 2 # Changed the state so as not to process all aver again
             final_classifications.extend(rateds)
         self._update(final_classifications, hook)
     
@@ -541,8 +545,8 @@ class AggregateOperator(BaseOperator):
                 source_id, 
                 width,
                 height,
-                ROUND(AVG(source_x),2), 
-                ROUND(AVG(source_y),2),
+                ROUND(AVG(source_x),2), -- Cluster X centroid
+                ROUND(AVG(source_y),2), -- Cluster Y centroid
                 image_id, 
                 image_url, 
                 image_long, 
@@ -555,17 +559,6 @@ class AggregateOperator(BaseOperator):
             FROM spectra_classification_t 
             GROUP BY subject_id, source_id
             '''
-        )
-        hook.run_many_dict_rows(
-            dict_rows = final_classifications,
-            sql = '''
-                UPDATE spectra_classification_t
-                SET 
-                    clustered      = :clustered
-                WHERE subject_id = :subject_id
-                AND source_id    = :source_id
-                ''',
-            commit_every = 500,
         )
         hook.run_many_dict_rows(
             dict_rows = final_classifications,
@@ -584,12 +577,25 @@ class AggregateOperator(BaseOperator):
                 ''',
             commit_every = 500,
         )
-
+        # Update status of individual classifications
+        # so as not to pass again for the same process
+        hook.run_many_dict_rows(
+            dict_rows = final_classifications,
+            sql = '''
+                UPDATE spectra_classification_t
+                SET 
+                    aggregated   = :aggregated
+                WHERE subject_id = :subject_id
+                AND source_id    = :source_id
+                ''',
+            commit_every = 500,
+        )
+       
 
     def execute(self, context):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         self._cluster(hook)
-        #self._classify(hook)
+        self._classify(hook)
 
 
 class IndividualCSVExportOperator(BaseOperator):
