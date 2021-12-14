@@ -357,17 +357,18 @@ class AggregateOperator(BaseOperator):
     classification analysis takes place.
     '''
 
-    DISTANCE = 30  # light source dispersion radius in pixels
     CATEGORIES = ('HPS','MV','LED','MH', None)
 
     @apply_defaults
-    def __init__(self, conn_id, **kwargs):
+    def __init__(self, conn_id, distance = 30, **kwargs):
         super().__init__(**kwargs)
         self._conn_id     = conn_id
+        self._distance    = distance # max distance to belong to a cluster
 
 
     def _cluster(self, hook):
         '''Perform clustering analysis over source light selection'''
+        self.log.info(f"Cluster analysis with distance {self._distance}")
         user_selections = hook.get_records('''
             SELECT subject_id, source_x, source_y
             FROM spectra_classification_t
@@ -387,7 +388,7 @@ class AggregateOperator(BaseOperator):
             else:
                 # Define the model
                 coordinates = np.array(coordinates)
-                model = cluster.DBSCAN(eps=self.DISTANCE, min_samples=2)
+                model = cluster.DBSCAN(eps=self._distance, min_samples=2)
                 # Fit the model and predict clusters
                 yhat = model.fit_predict(coordinates)
                 # retrieve unique clusters
@@ -398,9 +399,18 @@ class AggregateOperator(BaseOperator):
                     # get row indexes for samples with this cluster
                     row_ix = np.where(yhat == cl)
                     X = coordinates[row_ix, 0][0]; Y = coordinates[row_ix, 1][0]
-                    alist = np.column_stack((X,Y))
-                    alist = list( map(lambda t: {'source_id': cl+1 if cl>-1 else cl, 'source_x':t[0], 'source_y': t[1]}, alist))
-                    clustered_classifications.extend(alist)
+                    if cl != -1:
+                        alist = np.column_stack((X,Y))
+                        alist = list( map(lambda t: {'source_id': cl+1 if cl>-1 else cl, 'source_x':t[0], 'source_y': t[1]}, alist))
+                        clustered_classifications.extend(alist)
+                    else:
+                        start = max(clusters)+2 # we will shift also the normal ones ...
+                        for i in range(len(X)) :
+                            source_id = start + i
+                            self.log.info(f"Subject {subject_id}: noisy point to source_id {source_id}")
+                            row = {'source_id': source_id, 'source_x': X[i], 'source_y': Y[i]}
+                            clustered_classifications.append(row)
+                        
         hook.run_many_dict_rows(
             dict_rows = clustered_classifications,
             sql = '''
@@ -579,9 +589,6 @@ class AggregateOperator(BaseOperator):
                 ''',
             commit_every = 500,
         )
-       
-        
-       
        
 
     def execute(self, context):
