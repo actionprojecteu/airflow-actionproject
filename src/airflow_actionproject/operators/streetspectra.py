@@ -407,7 +407,7 @@ class AggregateOperator(BaseOperator):
                         start = max(clusters)+2 # we will shift also the normal ones ...
                         for i in range(len(X)) :
                             source_id = start + i
-                            self.log.info(f"Subject {subject_id}: noisy point to source_id {source_id}")
+                            self.log.debug(f"Subject {subject_id}: noisy point to source_id {source_id}")
                             row = {'source_id': source_id, 'source_x': X[i], 'source_y': Y[i]}
                             clustered_classifications.append(row)
                         
