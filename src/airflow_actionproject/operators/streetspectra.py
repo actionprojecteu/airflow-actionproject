@@ -242,6 +242,8 @@ class PreprocessClassifOperator(BaseOperator):
         # General info
         new["classification_id"] = classification["classification_id"]
         new["subject_id"]        = classification["subject_ids"]
+        new["workflow_id"]       = classification["workflow_id"]
+        new["user_id"]           = classification["user_id"]
         new["started_at"]        = classification["metadata"]["started_at"]
         new["finished_at"]       = classification["metadata"]["finished_at"]
         sd = classification["metadata"]["subject_dimensions"][0]
@@ -355,7 +357,7 @@ class AggregateOperator(BaseOperator):
     classification analysis takes place.
     '''
 
-    RADIUS = 15  # light source dispersion radius in pixels
+    DISTANCE = 30  # light source dispersion radius in pixels
     CATEGORIES = ('HPS','MV','LED','MH', None)
 
     @apply_defaults
@@ -385,7 +387,7 @@ class AggregateOperator(BaseOperator):
             else:
                 # Define the model
                 coordinates = np.array(coordinates)
-                model = cluster.DBSCAN(eps=self.RADIUS, min_samples=2)
+                model = cluster.DBSCAN(eps=self.DISTANCE, min_samples=2)
                 # Fit the model and predict clusters
                 yhat = model.fit_predict(coordinates)
                 # retrieve unique clusters
@@ -427,7 +429,7 @@ class AggregateOperator(BaseOperator):
             spectra_type = counters.get(key,[])
             spectra_type.append(spectrum_type)
             counters[key] = spectra_type
-        # Compute ratings per source_id per subject_id
+        # Compute aggregated ratings per source_id per subject_id
         ratings = dict()
         for key, spectra_type in counters.items():
             subject_id = key[0]
@@ -465,14 +467,16 @@ class AggregateOperator(BaseOperator):
             rateds = ratings.get(key,[])
             rateds.append(rating)
             ratings[key] = rateds
-        # Compute Fleiss' Kappa per source_id per subject
+        
         final_classifications = list()
         for key, rateds in ratings.items():
-            kappa, n_users = self._kappa_fleiss(self.CATEGORIES, rateds)
-            for rated in rateds:
-                rated['kappa']       = kappa
-                rated['users_count'] = n_users
             final_classifications.extend(rateds)
+        hook.run('''
+            UPDATE spectra_classification_t
+            SET aggregated = 1
+            WHERE aggregated IS NULL AND source_id IS NOT NULL
+            ''',
+        )
         self._update(final_classifications, hook)
     
 
@@ -569,27 +573,15 @@ class AggregateOperator(BaseOperator):
                     spectrum_dist  = :spectrum_dist,
                     spectrum_users = :spectrum_users,
                     spectrum_count = :spectrum_count,
-                    rejection_tag  = :rejection_tag,
-                    kappa          = :kappa,
-                    users_count    = :users_count
+                    rejection_tag  = :rejection_tag
                 WHERE subject_id = :subject_id
                 AND source_id    = :source_id
                 ''',
             commit_every = 500,
         )
-        # Update status of individual classifications
-        # so as not to pass again for the same process
-        hook.run_many_dict_rows(
-            dict_rows = final_classifications,
-            sql = '''
-                UPDATE spectra_classification_t
-                SET 
-                    aggregated   = :aggregated
-                WHERE subject_id = :subject_id
-                AND source_id    = :source_id
-                ''',
-            commit_every = 500,
-        )
+       
+        
+       
        
 
     def execute(self, context):
@@ -654,7 +646,7 @@ class IndividualCSVExportOperator(BaseOperator):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         individual_classifications = hook.get_records('''
             SELECT
-                '1.0',  -- CSV file format export version
+                '1',  -- CSV file format export version
                 subject_id,
                 classification_id,
                 started_at,
@@ -717,8 +709,6 @@ class AggregateCSVExportOperator(BaseOperator):
             'spectrum_dist',
             'agreement',
             'rejection_tag',
-            'kappa',
-            'users_count',
             'image_url',
             'image_long',
             'image_lat',
@@ -745,7 +735,7 @@ class AggregateCSVExportOperator(BaseOperator):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         aggregated_classifications = hook.get_records('''
             SELECT
-                '1.0',  -- CSV file format export version
+                '1',  -- CSV file format export version
                 subject_id || '-' || source_id,
                 source_x,
                 source_y,
@@ -753,8 +743,6 @@ class AggregateCSVExportOperator(BaseOperator):
                 spectrum_dist,
                 spectrum_count || '/' || spectrum_users,
                 rejection_tag,
-                kappa,
-                users_count,
                 image_url,
                 image_long,
                 image_lat,
