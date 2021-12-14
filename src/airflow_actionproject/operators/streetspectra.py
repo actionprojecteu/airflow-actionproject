@@ -622,11 +622,6 @@ class IndividualCSVExportOperator(BaseOperator):
             'height',
             'source_x',
             'source_y',
-            'spectrum_x',
-            'spectrum_y',
-            'spectrum_width',
-            'spectrum_height',
-            'spectrum_angle',
             'spectrum_type',
             'image_url',
             'image_long',
@@ -635,7 +630,7 @@ class IndividualCSVExportOperator(BaseOperator):
             'image_comment',
             'image_source',
             'image_created_at',
-            'image_spectrum'
+            'image_spectrum',
     )
     
     template_fields = ("_output_path",)
@@ -662,12 +657,8 @@ class IndividualCSVExportOperator(BaseOperator):
                 height,
                 source_x,
                 source_y,
-                spectrum_x,
-                spectrum_y,
-                spectrum_width,
-                spectrum_height,
-                spectrum_angle,
                 spectrum_type,
+                -- Metadata from Epicollect 5
                 image_url,
                 image_long,
                 image_lat,
@@ -676,6 +667,7 @@ class IndividualCSVExportOperator(BaseOperator):
                 image_source,
                 image_created_at,
                 image_spectrum
+
             FROM spectra_classification_t
             ORDER BY subject_id DESC
         ''');
