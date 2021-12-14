@@ -244,6 +244,7 @@ class PreprocessClassifOperator(BaseOperator):
         new["subject_id"]        = classification["subject_ids"]
         new["workflow_id"]       = classification["workflow_id"]
         new["user_id"]           = classification["user_id"]
+        new["user_ip"]           = classification["user_ip"]
         new["started_at"]        = classification["metadata"]["started_at"]
         new["finished_at"]       = classification["metadata"]["finished_at"]
         sd = classification["metadata"]["subject_dimensions"][0]

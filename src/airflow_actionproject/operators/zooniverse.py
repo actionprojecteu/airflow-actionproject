@@ -270,10 +270,13 @@ class ZooniverseTransformOperator(BaseOperator):
         # Fixes timestamps format
         dt = datetime.datetime.strptime(item['created_at'],'%Y-%m-%d %H:%M:%S UTC').replace(microsecond=0)
         item['created_at'] = dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+        # Modify empty usert_id to be a proper NULL value
+        item["user_id"] = None if item["user_id"] == '' else item["user_id"]
         # Delete items not needed
         # Add extra items
         item["project"] = self._project
         item["source"] = "Zooniverse"
+        item["obs_type"] = "classification"
         item["obs_type"] = "classification"
         return item
 
