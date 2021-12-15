@@ -324,9 +324,9 @@ class PreprocessClassifOperator(BaseOperator):
     def _insert(self, classifications):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         self.log.info(f"Logging classifications differences")
-        hook.insert_dict_rows(
+        hook.insert_many(
             table        = 'spectra_classification_t',
-            dict_rows    = classifications,
+            rows    = classifications,
             commit_every = 500,
             replace      = False,
             ignore       = False,
@@ -412,15 +412,15 @@ class AggregateOperator(BaseOperator):
                             row = {'source_id': source_id, 'source_x': X[i], 'source_y': Y[i]}
                             clustered_classifications.append(row)
                         
-        hook.run_many_dict_rows(
-            dict_rows = clustered_classifications,
-            sql = '''
-                UPDATE spectra_classification_t
-                SET 
-                    source_id    = :source_id
-                WHERE source_x   = :source_x
-                AND  source_y    = :source_y
-                ''',
+        hook.run_many(
+            '''
+            UPDATE spectra_classification_t
+            SET 
+                source_id    = :source_id
+            WHERE source_x   = :source_x
+            AND  source_y    = :source_y
+            ''',
+            parameters = clustered_classifications,
             commit_every = 500,
         )
 
@@ -575,19 +575,19 @@ class AggregateOperator(BaseOperator):
             GROUP BY subject_id, source_id
             '''
         )
-        hook.run_many_dict_rows(
-            dict_rows = final_classifications,
-            sql = '''
-                UPDATE spectra_aggregate_t
-                SET 
-                    spectrum_type  = :spectrum_type,
-                    spectrum_dist  = :spectrum_dist,
-                    spectrum_users = :spectrum_users,
-                    spectrum_count = :spectrum_count,
-                    rejection_tag  = :rejection_tag
-                WHERE subject_id = :subject_id
-                AND source_id    = :source_id
-                ''',
+        hook.run_many(
+            '''
+            UPDATE spectra_aggregate_t
+            SET 
+                spectrum_type  = :spectrum_type,
+                spectrum_dist  = :spectrum_dist,
+                spectrum_users = :spectrum_users,
+                spectrum_count = :spectrum_count,
+                rejection_tag  = :rejection_tag
+            WHERE subject_id = :subject_id
+            AND source_id    = :source_id
+            ''',
+            parameters = final_classifications,
             commit_every = 500,
         )
        

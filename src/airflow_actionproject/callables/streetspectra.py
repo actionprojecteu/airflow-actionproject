@@ -77,9 +77,9 @@ def check_new_csv_version(conn_id, input_path, input_type, true_task_id, false_t
 		return false_task_id
 
 	log.info(f"A new CSV file {input_path}, version {version}, hash {new_hash} is been inserted into the database")
-	hook.insert_dict_rows(
+	hook.insert_many(
             table        = 'zenodo_csv_t',
-            dict_rows    = {'hash': new_hash, 'version': version, 'type': input_type},
+            rows         = {'hash': new_hash, 'version': version, 'type': input_type},
             commit_every = 500,
             replace      = False,
         )       

@@ -161,9 +161,9 @@ class ZooniverseDeltaOperator(BaseOperator):
 			record['subject_ids']   = json.dumps(record['subject_ids'])
 			records.append(record)
 		# This is my customized, optimized insert or replace method
-		hook.insert_dict_rows(
+		hook.insert_many(
 			table        = 'zoo_export_t',
-			dict_rows    = records,
+			rows         = records,
 			commit_every = 500,
 			replace      = True,
 		)			
@@ -171,9 +171,9 @@ class ZooniverseDeltaOperator(BaseOperator):
 		timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 		differences = {'executed_at': timestamp, 'before': before, 'after': after}
 		self.log.info(f"Logging classifications differences {differences}")
-		hook.insert_dict_rows(
+		hook.insert_many(
 			table        = 'zoo_export_window_t',
-			dict_rows    = differences,
+			rows         = differences,
 			commit_every = 500,
 			replace      = False,
 		)		
