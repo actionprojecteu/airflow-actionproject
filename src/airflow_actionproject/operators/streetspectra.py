@@ -238,6 +238,16 @@ class PreprocessClassifOperator(BaseOperator):
 
 
     def _extract(self, classification):
+        # The previos street spectra workflow
+        # The first workflow id is the production value, the second one is a test environment
+        if int(classification["workflow_id"]) in (13033,17959):
+            self.log.info("old workflow")
+            return self._extractOld(classification)
+        else:
+            self.log.info("new workflow")
+            return self._extractNew(classification)
+
+    def _extractOld(self, classification):
         new = dict()
         # General info
         new["classification_id"] = classification["classification_id"]
@@ -248,6 +258,7 @@ class PreprocessClassifOperator(BaseOperator):
         new["started_at"]        = classification["metadata"]["started_at"]
         new["finished_at"]       = classification["metadata"]["finished_at"]
         sd = classification["metadata"]["subject_dimensions"][0]
+        new["sources"] = list()
         if sd:
             new["width"]      = sd["naturalWidth"]
             new["height"]     = sd["naturalHeight"]
@@ -257,8 +268,14 @@ class PreprocessClassifOperator(BaseOperator):
         value =  classification["annotations"][0]["value"]
         if value:
             # Light source info
-            new["source_x"]   = value[0]["x"]
-            new["source_y"]   = value[0]["y"]
+            new["sources"].append({
+                'classification_id': new["classification_id"],
+                'source_x'      : value[0]["x"],
+                'source_y'      : value[0]["y"],
+                'spectrum_type' : None,
+                'aggregated'    : None,
+                'source_id'     : None,
+            })
             # Spectrum tool info
             if len(value) > 1:  # The user really used this tool
                 # new["spectrum_x"] = value[1].get("x")
@@ -268,29 +285,11 @@ class PreprocessClassifOperator(BaseOperator):
                 # new["spectrum_angle"]  = value[1].get("angle")
                 details   = value[1].get("details")
                 if details:
-                    new["spectrum_type"] = details[0]["value"]
-                    new["spectrum_type"] = self.SPECTRUM_TYPE.get(new["spectrum_type"], new["spectrum_type"]) # remap spectrum type codes to strings
-                else:
-                    new["spectrum_type"] = None
-            else:
-                # new["spectrum_x"] = None
-                # new["spectrum_y"] = None
-                # new["spectrum_width"]  = None
-                # new["spectrum_height"] = None
-                # new["spectrum_angle"]  = None
-                new["spectrum_type"]   = None
-        else:   # The user skipped this observation
-            # Light source info
-            new["source_x"]   = None
-            new["source_y"]   = None
-            # Spectrum tool info
-            # new["spectrum_x"] = None
-            # new["spectrum_y"] = None
-            # new["spectrum_width"]  = None
-            # new["spectrum_height"] = None
-            # new["spectrum_angle"]  = None
-            new["spectrum_type"]   = None
-
+                    spectrum_type = details[0]["value"]
+                    # remap spectrum type codes to strings
+                    spectrum_type = self.SPECTRUM_TYPE.get(spectrum_type, spectrum_type) #
+                    new["sources"][0]["spectrum_type"] = spectrum_type
+                      
         # Metadata coming from the Observing Platform
         key = list(classification["subject_data"].keys())[0]
         value = classification["subject_data"][key]
@@ -308,6 +307,54 @@ class PreprocessClassifOperator(BaseOperator):
         return new
 
 
+
+    def _extractNew(self, classification):
+        new = dict()
+        # General info
+        new["classification_id"] = classification["classification_id"]
+        new["subject_id"]        = classification["subject_ids"]
+        new["workflow_id"]       = classification["workflow_id"]
+        new["user_id"]           = classification["user_id"]
+        new["user_ip"]           = classification["user_ip"]
+        new["started_at"]        = classification["metadata"]["started_at"]
+        new["finished_at"]       = classification["metadata"]["finished_at"]
+        new["sources"] = list()
+        sd = classification["metadata"]["subject_dimensions"][0]
+        if sd:
+            new["width"]      = sd["naturalWidth"]
+            new["height"]     = sd["naturalHeight"]
+        else:
+            new["width"]      = None
+            new["height"]     = None
+        values =  classification["annotations"][0]["value"]
+        if values:
+            for value in values:
+                spectrum = value["details"][0]["value"]
+                spectrum = self.SPECTRUM_TYPE.get(spectrum, spectrum) 
+                new["sources"].append({
+                    'classification_id' : new["classification_id"],
+                    'source_x': value["x"],
+                    'source_y': value["y"],
+                    'spectrum_type' : spectrum,
+                    'aggregated'    : None,
+                    'source_id'     : None,
+                    })
+        # Metadata coming from the Observing Platform
+        key = list(classification["subject_data"].keys())[0]
+        value = classification["subject_data"][key]
+        new["image_id"]         = value.get("id")
+        new["image_url"]        = value.get("url")
+        new["image_long"]       = value.get("longitude")
+        new["image_lat"]        = value.get("latitude")
+        new["image_observer"]   = value.get("observer")
+        new["image_comment"]    = value.get("comment")
+        new["image_source"]     = value.get("source")
+        new["image_created_at"] = value.get("created_at")
+        new["image_spectrum"]   = value.get("spectrum_type")  # original classification made by observer
+        new["image_spectrum"]   = None if new["image_spectrum"] == "" else new["image_spectrum"]
+        return new
+
+
     def _is_useful(self, classification):
         '''False for classifications with either:
          - no source_x or source_y 
@@ -315,22 +362,91 @@ class PreprocessClassifOperator(BaseOperator):
          - missing image_url metadata
          - No GPS pòsition
          '''
-
-        return classification.get("source_x") and classification.get("source_y") and \
-                classification.get("spectrum_type") and classification.get("image_url") and \
-                classification.get("image_long") and classification.get("image_lat")
+        return  classification.get("image_url")  and \
+                classification.get("image_long") and \
+                classification.get("image_lat")  and \
+                len(classification.get("sources")) > 0
 
 
     def _insert(self, classifications):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         self.log.info(f"Logging classifications differences")
-        hook.insert_many(
-            table        = 'spectra_classification_t',
-            rows         = classifications,
+        # hook.insert_many(
+        #     table        = 'spectra_classification_t',
+        #     rows         = classifications,
+        #     commit_every = 500,
+        #     replace      = False,
+        #     ignore       = False,
+        # )       
+        hook.run_many(
+            '''
+            INSERT INTO spectra_classification_t (
+                classification_id,
+                subject_id, 
+                workflow_id, 
+                user_id,  
+                user_ip, 
+                started_at, 
+                finished_at, 
+                width,  
+                height, 
+                image_id, 
+                image_url, 
+                image_long, 
+                image_lat, 
+                image_observer, 
+                image_comment, 
+                image_source,  
+                image_created_at, 
+                image_spectrum
+            ) VALUES (
+                :classification_id,
+                :subject_id, 
+                :workflow_id, 
+                :user_id,  
+                :user_ip, 
+                :started_at, 
+                :finished_at, 
+                :width,  
+                :height, 
+                :image_id, 
+                :image_url, 
+                :image_long, 
+                :image_lat, 
+                :image_observer, 
+                :image_comment, 
+                :image_source,  
+                :image_created_at, 
+                :image_spectrum
+            )''',
+            parameters   = classifications,
             commit_every = 500,
-            replace      = False,
-            ignore       = False,
-        )       
+        )
+        sources = list()
+        for classification in classifications:
+            sources.extend(classification['sources'])
+        self.log.info(f"SOURCES = {sources}")
+        hook.run_many(
+            '''
+            INSERT INTO light_sources_t (
+                classification_id,
+                source_id, 
+                source_x, 
+                source_y,  
+                spectrum_type, 
+                aggregated
+            ) VALUES (
+                :classification_id,
+                :source_id, 
+                :source_x, 
+                :source_y,  
+                :spectrum_type, 
+                :aggregated
+            )''',
+            parameters   = sources,
+            commit_every = 500,
+        )   
+           
         
 
 
