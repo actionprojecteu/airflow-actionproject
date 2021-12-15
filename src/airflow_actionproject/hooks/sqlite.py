@@ -175,10 +175,10 @@ class SqliteHook(BaseSqliteHook):
 
 
     def run_many(self, sql, parameters, commit_every=1000, **kwargs):
-        method = getattr(rows,"keys", None)
+        method = getattr(parameters,"keys", None)
         if callable(method):
             rows = [rows]
-        N = len(rows)
+        N = len(parameters)
         if N == 0:
             self.log.info("Empty dictionary list. Not writting to SQlite")
             return

@@ -261,11 +261,11 @@ class PreprocessClassifOperator(BaseOperator):
             new["source_y"]   = value[0]["y"]
             # Spectrum tool info
             if len(value) > 1:  # The user really used this tool
-                new["spectrum_x"] = value[1].get("x")
-                new["spectrum_y"] = value[1].get("y")
-                new["spectrum_width"]  = value[1].get("width")
-                new["spectrum_height"] = value[1].get("height")
-                new["spectrum_angle"]  = value[1].get("angle")
+                # new["spectrum_x"] = value[1].get("x")
+                # new["spectrum_y"] = value[1].get("y")
+                # new["spectrum_width"]  = value[1].get("width")
+                # new["spectrum_height"] = value[1].get("height")
+                # new["spectrum_angle"]  = value[1].get("angle")
                 details   = value[1].get("details")
                 if details:
                     new["spectrum_type"] = details[0]["value"]
@@ -273,22 +273,22 @@ class PreprocessClassifOperator(BaseOperator):
                 else:
                     new["spectrum_type"] = None
             else:
-                new["spectrum_x"] = None
-                new["spectrum_y"] = None
-                new["spectrum_width"]  = None
-                new["spectrum_height"] = None
-                new["spectrum_angle"]  = None
+                # new["spectrum_x"] = None
+                # new["spectrum_y"] = None
+                # new["spectrum_width"]  = None
+                # new["spectrum_height"] = None
+                # new["spectrum_angle"]  = None
                 new["spectrum_type"]   = None
         else:   # The user skipped this observation
             # Light source info
             new["source_x"]   = None
             new["source_y"]   = None
             # Spectrum tool info
-            new["spectrum_x"] = None
-            new["spectrum_y"] = None
-            new["spectrum_width"]  = None
-            new["spectrum_height"] = None
-            new["spectrum_angle"]  = None
+            # new["spectrum_x"] = None
+            # new["spectrum_y"] = None
+            # new["spectrum_width"]  = None
+            # new["spectrum_height"] = None
+            # new["spectrum_angle"]  = None
             new["spectrum_type"]   = None
 
         # Metadata coming from the Observing Platform
@@ -326,7 +326,7 @@ class PreprocessClassifOperator(BaseOperator):
         self.log.info(f"Logging classifications differences")
         hook.insert_many(
             table        = 'spectra_classification_t',
-            rows    = classifications,
+            rows         = classifications,
             commit_every = 500,
             replace      = False,
             ignore       = False,
