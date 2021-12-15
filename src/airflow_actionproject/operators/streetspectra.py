@@ -425,7 +425,6 @@ class PreprocessClassifOperator(BaseOperator):
         sources = list()
         for classification in classifications:
             sources.extend(classification['sources'])
-        self.log.info(f"SOURCES = {sources}")
         hook.run_many(
             '''
             INSERT INTO light_sources_t (
