@@ -556,21 +556,22 @@ class AggregateOperator(BaseOperator):
             spectra_type.append(spectrum_type)
             counters[key] = spectra_type
         # Compute aggregated ratings per source_id per subject_id
+        self.log.info(f"COUNTERS DICT IS {counters}")
         ratings = dict()
         for key, spectra_type in counters.items():
             subject_id = key[0]
             source_id  = key[1]
             counter = collections.Counter(spectra_type)
             votes = counter.most_common()
-            self.log.info(f" VOTES {votes}")
+            self.log.info(f"VOTES {votes}")
             if len(votes) > 1 and votes[0][1] == votes[1][1]:
                 spectrum_mode  = None
                 spectrum_max   = votes[0][1]
                 rejection_tag  = 'Ambiguous'
             elif votes[0][0] is None:
-                 spectrum_mode  = None
-                 spectrum_max   = None
-                 rejection_tag  = 'Never classified'
+                spectrum_mode  = None
+                spectrum_max   = None
+                rejection_tag  = 'Never classified'
             else:
                 spectrum_mode  = votes[0][0]
                 spectrum_max   = votes[0][1]
@@ -578,9 +579,9 @@ class AggregateOperator(BaseOperator):
             rating = {
                 'subject_id'    : subject_id, 
                 'source_id'     : source_id, 
-                'spectrum_type' : spectrum_type,
-                'spectrum_max': spectrum_max,
-                'source_count': sum(counter[key] for key in counter),
+                'spectrum_mode' : spectrum_mode,
+                'spectrum_max'  : spectrum_max,
+                'source_count'  : sum(counter[key] for key in counter),
                 'spectrum_dist' : str(votes), 
                 'rejection_tag' : rejection_tag,
                 'counter'       : counter,
@@ -690,10 +691,10 @@ class AggregateOperator(BaseOperator):
             '''
             UPDATE spectra_aggregate_t
             SET 
-                spectrum_mode  = :spectrum_type,
+                spectrum_mode  = :spectrum_mode,
                 spectrum_dist  = :spectrum_dist,
                 source_count   = :source_count,
-                spectrum_max  = :spectrum_max,
+                spectrum_max   = :spectrum_max,
                 rejection_tag  = :rejection_tag
             WHERE subject_id = :subject_id
             AND source_id    = :source_id
