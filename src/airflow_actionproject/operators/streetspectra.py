@@ -241,10 +241,8 @@ class PreprocessClassifOperator(BaseOperator):
         # The previos street spectra workflow
         # The first workflow id is the production value, the second one is a test environment
         if int(classification["workflow_id"]) in (13033,17959):
-            self.log.info("old workflow")
             return self._extractOld(classification)
         else:
-            self.log.info("new workflow")
             return self._extractNew(classification)
 
     def _extractOld(self, classification):
