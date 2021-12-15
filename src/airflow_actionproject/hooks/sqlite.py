@@ -168,7 +168,7 @@ class SqliteHook(BaseSqliteHook):
             rows = [rows]
         N = len(rows)
         if N == 0:
-            self.log.info("Empty dictionary list. Not writting to SQlite")
+            self.log.info("Empty parameters list. Not writting to SQLite")
             return
         sql = self._generate_insert_sql2(table, rows[0].keys(), replace, **kwargs)
         self._run_many(sql, rows, commit_every)
@@ -180,7 +180,7 @@ class SqliteHook(BaseSqliteHook):
             rows = [rows]
         N = len(parameters)
         if N == 0:
-            self.log.info("Empty dictionary list. Not writting to SQlite")
+            self.log.info("Empty parameters list. Not writting to SQLite")
             return
         self._run_many(sql, parameters, commit_every)
 
@@ -190,9 +190,9 @@ class SqliteHook(BaseSqliteHook):
         slices     = N // commit_every
         slices_rem = N %  commit_every
         if slices_rem:
-            self.log.info(f"Will execute sql with {N} rows looping {slices} times,  {commit_every} rows at a time time and a final reminder of of {slices_rem} rows")
+            self.log.info(f"Will execute sql statement below with {N} rows looping {slices} times,  {commit_every} rows at a time time and a final reminder of of {slices_rem} rows")
         else:
-            self.log.info(f"Will execute sql with {N} rows looping {slices} times, {commit_every} rows at a time")
+            self.log.info(f"Will execute sql statement below with {N} rows looping {slices} times, {commit_every} rows at a time")
         self.log.info(f"{sql}")
         with closing(self.get_conn()) as conn:
             if self.supports_autocommit:
@@ -204,8 +204,6 @@ class SqliteHook(BaseSqliteHook):
                     cur.executemany(sql, rows[:commit_every])
                     conn.commit()
                     rows = rows[commit_every:]
-                    #self.log.info("Saved %s slices of size %s into %s so far", i, N, table)
                 if slices_rem: 
                     cur.executemany(sql, rows)
                     conn.commit()
-                    #self.log.info("Saved last slices of size %s into %s so far", slices_rem, table)
