@@ -482,7 +482,7 @@ class AggregateOperator(BaseOperator):
 
     def _cluster(self, hook):
         '''Perform clustering analysis over source light selection'''
-        self.log.info(f"Cluster analysis with distance {self._distance}")
+        self.log.info(f"Cluster analysis by DBSCAN with distance {self._distance}")
         user_selections = hook.get_records('''
             SELECT subject_id, classification_id, source_x, source_y
             FROM spectra_classification_v
