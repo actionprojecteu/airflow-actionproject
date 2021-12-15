@@ -487,54 +487,55 @@ class AggregateOperator(BaseOperator):
         '''Perform clustering analysis over source light selection'''
         self.log.info(f"Cluster analysis with distance {self._distance}")
         user_selections = hook.get_records('''
-            SELECT subject_id, source_x, source_y
-            FROM spectra_classification_t
+            SELECT subject_id, classification_id, source_x, source_y
+            FROM spectra_classification_v
             WHERE source_id IS NULL
         ''')
         classifications_per_subject = dict()
-        for subject_id, source_x, source_y in user_selections:
+        for subject_id, classification_id, source_x, source_y in user_selections:
             coordinates = classifications_per_subject.get(subject_id, [])
-            coordinates.append((source_x, source_y))
+            coordinates.append({'classification_id': classification_id, 'coords': (source_x, source_y)})
             classifications_per_subject[subject_id] = coordinates
+        
         clustered_classifications = list()
-        for subject_id, coordinates in classifications_per_subject.items():
+        for subject_id, values in classifications_per_subject.items():
+            coordinates = tuple(value['coords'] for value in values)
+            ids = tuple(value['classification_id'] for value in values)
             N_Classifications = len(coordinates)
-            if N_Classifications < 2:
-                self.log.debug(f"Skipping cluster analysis in subject {subject_id} [N = {N_Classifications}]")
-                clustered_classifications.append({'source_id': 1, 'source_x':coordinates[0][0] , 'source_y':coordinates[0][1]})
-            else:
-                # Define the model
-                coordinates = np.array(coordinates)
-                model = cluster.DBSCAN(eps=self._distance, min_samples=2)
-                # Fit the model and predict clusters
-                yhat = model.fit_predict(coordinates)
-                # retrieve unique clusters
-                clusters = np.unique(yhat)
-                self.log.info(f"Subject {subject_id}: {len(clusters)} clusters from {N_Classifications} classifications, ids: {clusters}")
-                # create scatter plot for samples from each cluster
-                for cl in clusters:
-                    # get row indexes for samples with this cluster
-                    row_ix = np.where(yhat == cl)
-                    X = coordinates[row_ix, 0][0]; Y = coordinates[row_ix, 1][0]
-                    if cl != -1:
-                        alist = np.column_stack((X,Y))
-                        alist = list( map(lambda t: {'source_id': cl+1 if cl>-1 else cl, 'source_x':t[0], 'source_y': t[1]}, alist))
-                        clustered_classifications.extend(alist)
-                    else:
-                        start = max(clusters)+2 # we will shift also the normal ones ...
-                        for i in range(len(X)) :
-                            source_id = start + i
-                            self.log.debug(f"Subject {subject_id}: noisy point to source_id {source_id}")
-                            row = {'source_id': source_id, 'source_x': X[i], 'source_y': Y[i]}
-                            clustered_classifications.append(row)
+            # Define the model
+            coordinates = np.array(coordinates)
+            model = cluster.DBSCAN(eps=self._distance, min_samples=2)
+            # Fit the model and predict clusters
+            yhat = model.fit_predict(coordinates)
+            # retrieve unique clusters
+            clusters = np.unique(yhat)
+            self.log.info(f"Subject {subject_id}: {len(clusters)} clusters from {N_Classifications} classifications, ids: {clusters}")
+            # create scatter plot for samples from each cluster
+            for cl in clusters:
+                # get row indexes for samples with this cluster
+                row_ix = np.where(yhat == cl)
+                X = coordinates[row_ix, 0][0]; Y = coordinates[row_ix, 1][0]
+                #ID = ids[row_ix]
+                if cl != -1:
+                    alist = np.column_stack((X,Y))
+                    alist = list( map(lambda t: {'source_id': cl+1 if cl>-1 else cl, 'source_x':t[0], 'source_y': t[1]}, alist))
+                    clustered_classifications.extend(alist)
+                else:
+                    start = max(clusters)+2 # we will shift also the normal ones ...
+                    for i in range(len(X)) :
+                        source_id = start + i
+                        self.log.debug(f"Subject {subject_id}: noisy point to source_id {source_id}")
+                        row = {'source_id': source_id, 'source_x': X[i], 'source_y': Y[i]}
+                        clustered_classifications.append(row)
                         
         hook.run_many(
             '''
-            UPDATE spectra_classification_t
+            UPDATE light_sources_t
             SET 
                 source_id    = :source_id
-            WHERE source_x   = :source_x
-            AND  source_y    = :source_y
+            WHERE source_x = :source_x
+            AND  source_x = :source_x
+            AND  source_y = :source_y
             ''',
             parameters = clustered_classifications,
             commit_every = 500,
@@ -546,7 +547,7 @@ class AggregateOperator(BaseOperator):
         ratings = list()
         info1 = hook.get_records('''
             SELECT DISTINCT subject_id, source_id, spectrum_type
-            FROM spectra_classification_t 
+            FROM spectra_classification_v 
             WHERE aggregated IS NULL AND source_id IS NOT NULL
             ''',
         )
@@ -711,7 +712,7 @@ class AggregateOperator(BaseOperator):
     def execute(self, context):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         self._cluster(hook)
-        self._classify(hook)
+        #self._classify(hook)
 
 
 class IndividualCSVExportOperator(BaseOperator):
