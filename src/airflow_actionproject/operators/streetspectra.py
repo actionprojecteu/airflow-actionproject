@@ -544,7 +544,7 @@ class AggregateOperator(BaseOperator):
     def _classify(self, hook):
         ratings = list()
         info1 = hook.get_records('''
-            SELECT DISTINCT subject_id, source_id, spectrum_type
+            SELECT subject_id, source_id, spectrum_type
             FROM spectra_classification_v 
             WHERE aggregated IS NULL AND source_id IS NOT NULL
             ''',
@@ -556,14 +556,13 @@ class AggregateOperator(BaseOperator):
             spectra_type.append(spectrum_type)
             counters[key] = spectra_type
         # Compute aggregated ratings per source_id per subject_id
-        self.log.info(f"COUNTERS DICT IS {counters}")
         ratings = dict()
         for key, spectra_type in counters.items():
             subject_id = key[0]
             source_id  = key[1]
             counter = collections.Counter(spectra_type)
             votes = counter.most_common()
-            self.log.info(f"VOTES {votes}")
+            self.log.info(f"Subject Id: {subject_id}, Source Id: {source_id}, VOTES: {votes}")
             if len(votes) > 1 and votes[0][1] == votes[1][1]:
                 spectrum_mode  = None
                 spectrum_max   = votes[0][1]
