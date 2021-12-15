@@ -727,6 +727,7 @@ class IndividualCSVExportOperator(BaseOperator):
     HEADER = (
             'csv_version', 
             'subject_id',
+            'source_id',
             'classification_id',
             'started_at',
             'finished_at',
@@ -762,6 +763,7 @@ class IndividualCSVExportOperator(BaseOperator):
             SELECT
                 '1',  -- CSV file format export version
                 subject_id,
+                source_id,
                 classification_id,
                 started_at,
                 finished_at,
@@ -780,7 +782,7 @@ class IndividualCSVExportOperator(BaseOperator):
                 image_created_at,
                 image_spectrum
 
-            FROM spectra_classification_t
+            FROM spectra_classification_v
             ORDER BY subject_id DESC
         ''');
         # Make sure the output directory exists.
