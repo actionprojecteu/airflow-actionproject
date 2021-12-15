@@ -504,6 +504,7 @@ class AggregateOperator(BaseOperator):
             N_Classifications = len(coordinates)
             # Define the model
             coordinates = np.array(coordinates)
+            ids         = np.array(ids)
             model = cluster.DBSCAN(eps=self._distance, min_samples=2)
             # Fit the model and predict clusters
             yhat = model.fit_predict(coordinates)
@@ -515,17 +516,17 @@ class AggregateOperator(BaseOperator):
                 # get row indexes for samples with this cluster
                 row_ix = np.where(yhat == cl)
                 X = coordinates[row_ix, 0][0]; Y = coordinates[row_ix, 1][0]
-                #ID = ids[row_ix]
+                ID = ids[row_ix]
                 if cl != -1:
-                    alist = np.column_stack((X,Y))
-                    alist = list( map(lambda t: {'source_id': cl+1 if cl>-1 else cl, 'source_x':t[0], 'source_y': t[1]}, alist))
+                    alist = np.column_stack((X,Y,ID))
+                    alist = list( map(lambda t: {'source_id': cl+1 if cl>-1 else cl, 'source_x':t[0], 'source_y': t[1], 'classification_id': t[2]}, alist))
                     clustered_classifications.extend(alist)
                 else:
                     start = max(clusters)+2 # we will shift also the normal ones ...
                     for i in range(len(X)) :
                         source_id = start + i
                         self.log.debug(f"Subject {subject_id}: noisy point to source_id {source_id}")
-                        row = {'source_id': source_id, 'source_x': X[i], 'source_y': Y[i]}
+                        row = {'source_id': source_id, 'source_x': X[i], 'source_y': Y[i], 'classification_id': ID[i]}
                         clustered_classifications.append(row)
                         
         hook.run_many(
@@ -533,7 +534,7 @@ class AggregateOperator(BaseOperator):
             UPDATE light_sources_t
             SET 
                 source_id    = :source_id
-            WHERE source_x = :source_x
+            WHERE classification_id = :classification_id
             AND  source_x = :source_x
             AND  source_y = :source_y
             ''',
@@ -565,11 +566,7 @@ class AggregateOperator(BaseOperator):
             counter = collections.Counter(spectra_type)
             votes = counter.most_common()
             self.log.info(f" VOTES {votes}")
-            if source_id == -1:
-                spectrum_type  = votes[0][0]    # Not reliable
-                spectrum_count = votes[0][1]
-                rejection_tag  = 'Out of cluster'
-            elif len(votes) > 1 and votes[0][1] == votes[1][1]:
+            if len(votes) > 1 and votes[0][1] == votes[1][1]:
                 spectrum_type  = None
                 spectrum_count = votes[0][1]
                 rejection_tag  = 'Ambiguous'
@@ -600,7 +597,7 @@ class AggregateOperator(BaseOperator):
         for key, rateds in ratings.items():
             final_classifications.extend(rateds)
         hook.run('''
-            UPDATE spectra_classification_t
+            UPDATE light_sources_t
             SET aggregated = 1
             WHERE aggregated IS NULL AND source_id IS NOT NULL
             ''',
@@ -688,7 +685,7 @@ class AggregateOperator(BaseOperator):
                 image_source, 
                 image_created_at, 
                 image_spectrum
-            FROM spectra_classification_t 
+            FROM spectra_classification_v 
             GROUP BY subject_id, source_id
             '''
         )
@@ -712,7 +709,7 @@ class AggregateOperator(BaseOperator):
     def execute(self, context):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         self._cluster(hook)
-        #self._classify(hook)
+        self._classify(hook)
 
 
 class IndividualCSVExportOperator(BaseOperator):
