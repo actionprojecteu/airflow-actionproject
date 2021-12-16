@@ -39,8 +39,8 @@ def check_new_subjects(conn_id, true_task_id, false_task_id):
 	hook = SqliteHook(sqlite_conn_id=conn_id)
 	new_subjects = hook.get_first('''
 			SELECT COUNT (DISTINCT subject_id)
-			FROM spectra_classification_t 
-			WHERE source_id IS NULL
+			FROM spectra_classification_v 
+			WHERE cluster_id IS NULL
 		''')
 	if new_subjects[0] != 0:
 		next_task = true_task_id

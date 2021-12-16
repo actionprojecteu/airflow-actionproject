@@ -272,7 +272,7 @@ class PreprocessClassifOperator(BaseOperator):
                 'source_y'      : value[0]["y"],
                 'spectrum_type' : None,
                 'aggregated'    : None,
-                'source_id'     : None,
+                'cluster_id'     : None,
             })
             # Spectrum tool info
             if len(value) > 1:  # The user really used this tool
@@ -300,8 +300,7 @@ class PreprocessClassifOperator(BaseOperator):
         new["image_source"]     = value.get("source")
         new["image_created_at"] = value.get("created_at")
         new["image_spectrum"]   = value.get("spectrum_type")  # original classification made by observer
-        if new["image_spectrum"] == "":
-            new["image_spectrum"] = None
+        new["image_spectrum"]   = None if new["image_spectrum"] == "" else new["image_spectrum"]
         return new
 
 
@@ -335,7 +334,7 @@ class PreprocessClassifOperator(BaseOperator):
                     'source_y': value["y"],
                     'spectrum_type' : spectrum,
                     'aggregated'    : None,
-                    'source_id'     : None,
+                    'cluster_id'    : None,
                     })
         # Metadata coming from the Observing Platform
         key = list(classification["subject_data"].keys())[0]
@@ -355,10 +354,10 @@ class PreprocessClassifOperator(BaseOperator):
 
     def _is_useful(self, classification):
         '''False for classifications with either:
-         - no source_x or source_y 
-         - no spectrum_type
          - missing image_url metadata
          - No GPS pòsition
+         - no individual light source data (source_x, source_y or spectrum_type)
+        
          '''
         return  classification.get("image_url")  and \
                 classification.get("image_long") and \
@@ -369,13 +368,6 @@ class PreprocessClassifOperator(BaseOperator):
     def _insert(self, classifications):
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         self.log.info(f"Logging classifications differences")
-        # hook.insert_many(
-        #     table        = 'spectra_classification_t',
-        #     rows         = classifications,
-        #     commit_every = 500,
-        #     replace      = False,
-        #     ignore       = False,
-        # )       
         hook.run_many(
             '''
             INSERT INTO spectra_classification_t (
@@ -427,14 +419,14 @@ class PreprocessClassifOperator(BaseOperator):
             '''
             INSERT INTO light_sources_t (
                 classification_id,
-                source_id, 
+                cluster_id, 
                 source_x, 
                 source_y,  
                 spectrum_type, 
                 aggregated
             ) VALUES (
                 :classification_id,
-                :source_id, 
+                :cluster_id, 
                 :source_x, 
                 :source_y,  
                 :spectrum_type, 
@@ -482,11 +474,11 @@ class AggregateOperator(BaseOperator):
 
     def _cluster(self, hook):
         '''Perform clustering analysis over source light selection'''
-        self.log.info(f"Cluster analysis by DBSCAN with distance {self._distance}")
+        self.log.info(f"Cluster analysis by DBSCAN with epsilon distance {self._distance}")
         user_selections = hook.get_records('''
             SELECT subject_id, classification_id, source_x, source_y
             FROM spectra_classification_v
-            WHERE source_id IS NULL
+            WHERE cluster_id IS NULL
         ''')
         classifications_per_subject = dict()
         for subject_id, classification_id, source_x, source_y in user_selections:
@@ -507,8 +499,7 @@ class AggregateOperator(BaseOperator):
             yhat = model.fit_predict(coordinates)
             # retrieve unique clusters
             clusters = np.unique(yhat)
-            self.log.info(f"Subject {subject_id}: {len(clusters)} clusters from {N_Classifications} classifications, ids: {clusters}")
-            # create scatter plot for samples from each cluster
+            self.log.info(f"Subject {subject_id}: {len(clusters)} clusters from {N_Classifications} classifications, initial cluster ids: {clusters}")
             for cl in clusters:
                 # get row indexes for samples with this cluster
                 row_ix = np.where(yhat == cl)
@@ -516,21 +507,20 @@ class AggregateOperator(BaseOperator):
                 ID = ids[row_ix]
                 if cl != -1:
                     alist = np.column_stack((X,Y,ID))
-                    alist = list( map(lambda t: {'source_id': cl+1 if cl>-1 else cl, 'source_x':t[0], 'source_y': t[1], 'classification_id': t[2]}, alist))
+                    alist = list( map(lambda t: {'cluster_id': cl+1 if cl>-1 else cl, 'source_x':t[0], 'source_y': t[1], 'classification_id': t[2]}, alist))
                     clustered_classifications.extend(alist)
                 else:
                     start = max(clusters)+2 # we will shift also the normal ones ...
                     for i in range(len(X)) :
-                        source_id = start + i
-                        self.log.debug(f"Subject {subject_id}: noisy point to source_id {source_id}")
-                        row = {'source_id': source_id, 'source_x': X[i], 'source_y': Y[i], 'classification_id': ID[i]}
+                        cluster_id = start + i
+                        row = {'cluster_id': cluster_id, 'source_x': X[i], 'source_y': Y[i], 'classification_id': ID[i]}
                         clustered_classifications.append(row)
                         
         hook.run_many(
             '''
             UPDATE light_sources_t
             SET 
-                source_id    = :source_id
+                cluster_id    = :cluster_id
             WHERE classification_id = :classification_id
             AND  source_x = :source_x
             AND  source_y = :source_y
@@ -544,47 +534,47 @@ class AggregateOperator(BaseOperator):
     def _classify(self, hook):
         ratings = list()
         info1 = hook.get_records('''
-            SELECT subject_id, source_id, spectrum_type
+            SELECT subject_id, cluster_id, spectrum_type
             FROM spectra_classification_v 
-            WHERE aggregated IS NULL AND source_id IS NOT NULL
+            WHERE aggregated IS NULL AND cluster_id IS NOT NULL
             ''',
         )
         counters = dict()
-        for subject_id, source_id, spectrum_type in info1:
-            key = tuple([subject_id, source_id])
+        for subject_id, cluster_id, spectrum_type in info1:
+            key = tuple([subject_id, cluster_id])
             spectra_type = counters.get(key,[])
             spectra_type.append(spectrum_type)
             counters[key] = spectra_type
-        # Compute aggregated ratings per source_id per subject_id
+        # Compute aggregated ratings per cluster_id per subject_id
         ratings = dict()
         for key, spectra_type in counters.items():
             subject_id = key[0]
-            source_id  = key[1]
+            cluster_id  = key[1]
             counter = collections.Counter(spectra_type)
             votes = counter.most_common()
-            self.log.info(f"Subject Id: {subject_id}, Source Id: {source_id}, VOTES: {votes}")
+            self.log.info(f"Subject Id: {subject_id}, Source Id: {cluster_id}, VOTES: {votes}")
             if len(votes) > 1 and votes[0][1] == votes[1][1]:
-                spectrum_mode  = None
-                spectrum_max   = votes[0][1]
-                rejection_tag  = 'Ambiguous'
+                spectrum_type    = None
+                spectrum_absfreq = votes[0][1]
+                rejection_tag    = 'Ambiguous'
             elif votes[0][0] is None:
-                spectrum_mode  = None
-                spectrum_max   = None
-                rejection_tag  = 'Never classified'
+                spectrum_type    = None
+                spectrum_absfreq = None
+                rejection_tag    = 'Never classified'
             else:
-                spectrum_mode  = votes[0][0]
-                spectrum_max   = votes[0][1]
-                rejection_tag  = None
+                spectrum_type    = votes[0][0]
+                spectrum_absfreq = votes[0][1]
+                rejection_tag    = None
             rating = {
-                'subject_id'    : subject_id, 
-                'source_id'     : source_id, 
-                'spectrum_mode' : spectrum_mode,
-                'spectrum_max'  : spectrum_max,
-                'source_count'  : sum(counter[key] for key in counter),
-                'spectrum_dist' : str(votes), 
-                'rejection_tag' : rejection_tag,
-                'counter'       : counter,
-                'aggregated'    : 1,
+                'subject_id'       : subject_id, 
+                'cluster_id'       : cluster_id, 
+                'spectrum_type'    : spectrum_type,
+                'spectrum_absfreq' : spectrum_absfreq,
+                'cluster_size'     : len(spectra_type),
+                'spectrum_distr'   : str(votes), 
+                'rejection_tag'    : rejection_tag,
+                'counter'          : counter,
+                'epsilon'          : self._distance,
             }
             rateds = ratings.get(key,[])
             rateds.append(rating)
@@ -596,54 +586,11 @@ class AggregateOperator(BaseOperator):
         hook.run('''
             UPDATE light_sources_t
             SET aggregated = 1
-            WHERE aggregated IS NULL AND source_id IS NOT NULL
+            WHERE aggregated IS NULL AND cluster_id IS NOT NULL
             ''',
         )
         self._update(final_classifications, hook)
     
-
-
-    def _kappa_fleiss(self, categories, ratings):
-        '''
-        Calculates Fleiss' kappa.
-        categories - sequence of categories
-        ratings    - sequence of classifications given each one by collection.Counters
-        See https://en.wikipedia.org/wiki/Fleiss%27_kappa=  
-        '''
-        matrix     = dict()
-        p_j        = dict()
-        P_i        = dict()
-        N          = len(ratings)
-        
-        # find out the number of raters by aggregating 
-        # all counters for all source_ids of the same subject_id
-        n = sum(sum(rating['counter'][key] for key in rating['counter']) for rating in ratings)
-        if n == 1:
-            return None, n
-        subjects   = set(rating['source_id'] for rating in ratings)
-        # Build the rating matrix
-        for rating in ratings:
-            for category in categories:
-                row    = rating['source_id']
-                column = category
-                number = rating['counter'][category]
-                matrix[(row,column)] = number
-    
-        # Calculate the different p_j by summing columns
-        for category in categories:
-            s = sum(matrix[(subject,category)] for subject in subjects)
-            p_j[category] = s / float(N * n)
-        # Calculate the different P_i by summing rows
-        for subject in subjects:
-            s = sum(matrix[(subject,category)]**2 for category in categories)
-            P_i[subject] = (s - n)/ float(n*(n-1))
-        P_bar   = sum(P_i[key]    for key in P_i) / N
-        P_e_bar = sum(p_j[key]**2 for key in p_j)
-        if P_e_bar == 1.0:
-            kappa = math.inf
-        else:
-            kappa = (P_bar - P_e_bar) / (1 - P_e_bar)
-        return kappa, n
 
 
     def _update(self, final_classifications, hook):
@@ -651,7 +598,7 @@ class AggregateOperator(BaseOperator):
         hook.run('''
                 INSERT OR IGNORE INTO spectra_aggregate_t (
                 subject_id,
-                source_id,
+                cluster_id,
                 width,
                 height,
                 source_x,
@@ -668,7 +615,7 @@ class AggregateOperator(BaseOperator):
             )
             SELECT 
                 subject_id, 
-                source_id, 
+                cluster_id, 
                 width,
                 height,
                 ROUND(AVG(source_x),2), -- Cluster X centroid
@@ -683,20 +630,21 @@ class AggregateOperator(BaseOperator):
                 image_created_at, 
                 image_spectrum
             FROM spectra_classification_v 
-            GROUP BY subject_id, source_id
+            GROUP BY subject_id, cluster_id
             '''
         )
         hook.run_many(
             '''
             UPDATE spectra_aggregate_t
             SET 
-                spectrum_mode  = :spectrum_mode,
-                spectrum_dist  = :spectrum_dist,
-                source_count   = :source_count,
-                spectrum_max   = :spectrum_max,
-                rejection_tag  = :rejection_tag
-            WHERE subject_id = :subject_id
-            AND source_id    = :source_id
+                spectrum_type    = :spectrum_type,
+                spectrum_distr   = :spectrum_distr,
+                cluster_size     = :cluster_size,
+                spectrum_absfreq = :spectrum_absfreq,
+                rejection_tag    = :rejection_tag,
+                epsilon          = :epsilon 
+            WHERE subject_id  = :subject_id
+            AND cluster_id    = :cluster_id
             ''',
             parameters = final_classifications,
             commit_every = 500,
@@ -727,19 +675,16 @@ class IndividualCSVExportOperator(BaseOperator):
     HEADER = (
             'csv_version', 
             'subject_id',
-            'source_id',
-            'classification_id',
-            'started_at',
-            'finished_at',
+            'cluster_id',
+            'user_id',
             'width',
             'height',
-            'source_x',
-            'source_y',
+            'light_source_x',
+            'light_source_y',
             'spectrum_type',
             'image_url',
             'image_long',
             'image_lat',
-            'image_observer',
             'image_comment',
             'image_source',
             'image_created_at',
@@ -763,20 +708,17 @@ class IndividualCSVExportOperator(BaseOperator):
             SELECT
                 '1',  -- CSV file format export version
                 subject_id,
-                source_id,
-                classification_id,
-                started_at,
-                finished_at,
+                cluster_id,
+                iif(user_id,user_id,user_ip),
                 width,
                 height,
-                source_x,
-                source_y,
+                ROUND(source_x,3),
+                ROUND(source_y,3),
                 spectrum_type,
                 -- Metadata from Epicollect 5
                 image_url,
                 image_long,
                 image_lat,
-                image_observer,
                 image_comment,
                 image_source,
                 image_created_at,
@@ -815,18 +757,18 @@ class AggregateCSVExportOperator(BaseOperator):
     
     HEADER = (
             'csv_version',  
-            'source_label',
-            'source_x',
-            'source_y',
-            'spectrum_mode',
-            'spectrum_dist',
-            'spectrum_max',
-            'source_count',
+            'light_source_id',
+            'light_source_x',
+            'light_source_y',
+            'spectrum_type',
+            'spectrum_distr',
+            'spectrum_absfreq',
+            'cluster_size',
+            'epsilon',
             'rejection_tag',
             'image_url',
             'image_long',
             'image_lat',
-            'image_observer',
             'image_comment',
             'image_source',
             'image_created_at',
@@ -850,18 +792,18 @@ class AggregateCSVExportOperator(BaseOperator):
         aggregated_classifications = hook.get_records('''
             SELECT
                 '1',  -- CSV file format export version
-                subject_id || '-' || source_id,
+                subject_id || '-' || cluster_id,
                 source_x,
                 source_y,
-                spectrum_mode,
-                spectrum_dist,
-                spectrum_max,
-                source_count,
+                spectrum_type,
+                spectrum_distr,
+                spectrum_absfreq,
+                cluster_size,
+                epsilon,
                 rejection_tag,
                 image_url,
                 image_long,
                 image_lat,
-                image_observer,
                 image_comment,
                 image_source,
                 image_created_at,
