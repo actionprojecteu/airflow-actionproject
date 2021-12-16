@@ -507,20 +507,23 @@ class AggregateOperator(BaseOperator):
                 ID = ids[row_ix]
                 if cl != -1:
                     alist = np.column_stack((X,Y,ID))
-                    alist = list( map(lambda t: {'cluster_id': cl+1 if cl>-1 else cl, 'source_x':t[0], 'source_y': t[1], 'classification_id': t[2]}, alist))
+                    alist = list( map(lambda t: 
+                            {'cluster_id': cl+1 if cl>-1 else cl, 'source_x':t[0], 'source_y': t[1], 'classification_id': t[2], 'epsilon': self._distance}, 
+                            alist))
                     clustered_classifications.extend(alist)
                 else:
                     start = max(clusters)+2 # we will shift also the normal ones ...
                     for i in range(len(X)) :
                         cluster_id = start + i
-                        row = {'cluster_id': cluster_id, 'source_x': X[i], 'source_y': Y[i], 'classification_id': ID[i]}
+                        row = {'cluster_id': cluster_id, 'source_x': X[i], 'source_y': Y[i], 'classification_id': ID[i], 'epsilon': self._distance}
                         clustered_classifications.append(row)
                         
         hook.run_many(
             '''
             UPDATE light_sources_t
             SET 
-                cluster_id    = :cluster_id
+                cluster_id    = :cluster_id,
+                epsilon       = :epsilon
             WHERE classification_id = :classification_id
             AND  source_x = :source_x
             AND  source_y = :source_y
@@ -679,6 +682,7 @@ class IndividualCSVExportOperator(BaseOperator):
             'user_id',
             'width',
             'height',
+            'epsilon',
             'light_source_x',
             'light_source_y',
             'spectrum_type',
@@ -712,6 +716,7 @@ class IndividualCSVExportOperator(BaseOperator):
                 iif(user_id,user_id,user_ip),
                 width,
                 height,
+                epsilon,
                 ROUND(source_x,3),
                 ROUND(source_y,3),
                 spectrum_type,
