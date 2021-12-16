@@ -356,13 +356,14 @@ class PreprocessClassifOperator(BaseOperator):
         '''False for classifications with either:
          - missing image_url metadata
          - No GPS pòsition
-         - no individual light source data (source_x, source_y or spectrum_type)
+         - no individual light source data (spectrum_type)
         
          '''
         return  classification.get("image_url")  and \
                 classification.get("image_long") and \
                 classification.get("image_lat")  and \
-                len(classification.get("sources")) > 0
+                len(classification.get("sources")) > 0 and \
+                all(map(lambda s: s['spectrum_type'] is not None, classification.get("sources")))
 
 
     def _insert(self, classifications):
