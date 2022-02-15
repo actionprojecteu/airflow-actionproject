@@ -17,11 +17,13 @@ import logging
 # Airflow imports
 # ---------------
 
-from airflow.providers.sqlite.hooks.sqlite import SqliteHook
+#from airflow.providers.sqlite.hooks.sqlite import SqliteHook
 
 #--------------
 # local imports
 # -------------
+
+from airflow_actionproject.hooks.sqlite import SqliteHook
 
 # -----------------------
 # Module global variables
