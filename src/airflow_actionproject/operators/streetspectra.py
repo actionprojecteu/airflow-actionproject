@@ -827,4 +827,88 @@ class AggregateCSVExportOperator(BaseOperator):
             for classification in aggregated_classifications:
                 writer.writerow(classification)
         self.log.info(f"Exported StreetSpectra classifications to CSV file {self._output_path}")
+
+
+class SQLInsertObservationsOperator(BaseOperator):
+    '''
+    Operator that uploads observations into an internal SQLite database.
+
+    Parameters
+    —————
+    conn_id : str
+    Aiflow connection id to SQLite internal database. 
+    (Templated) input_path : str
+    Path to the JSON file with observations.
+    
+    '''
+    
+    template_fields = ("_input_path",)
+
+  
+    @apply_defaults
+    def __init__(self, conn_id, input_path, **kwargs):
+        super().__init__(**kwargs)
+        self._input_path  = input_path
+        self._conn_id     = conn_id
+
+
+    def _insert(self, observations):
+
+        def remap_location(item):
+            item['longitude'] = item['location']['longitude']
+            item['latitude']  = item['location']['latitude']
+            item['accuracy']  = item['location']['accuracy']
+            item["written_at"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            del item['location']
+            return item
+
+        observations = tuple(map(remap_location, observations))
+        hook = SqliteHook(sqlite_conn_id=self._conn_id)
+        hook.run_many('''
+            INSERT OR IGNORE INTO epicollect5_t (
+                image_id   ,    -- Image GUID
+                created_at ,    -- Original entry creation timestamp
+                uploaded_at,    -- Image upload into database timestamp
+                written_at ,    -- Database insertion timestamp
+                title      ,    -- Image title, usually the GUID
+                observer   ,    -- observer's nickname
+                latitude   ,    -- image latitude in degrees
+                longitude  ,    -- image longitude in degrees
+                accuracy   ,    -- coordinates accuracy
+                url        ,    -- image URL
+                spectrum_type,  -- optional spectrum type set by observer
+                comment    ,    -- optional observer comment
+                project    ,    -- source project identifier ('street-spectra')
+                source     ,    -- Observing platform ('Epicollect5')
+                obs_type        -- Entry type ('observation')
+            ) VALUES (
+                :id         ,   
+                :created_at ,    
+                :uploaded_at, 
+                :written_at ,      
+                :title      ,    
+                :observer   ,    
+                :latitude   ,    
+                :longitude  ,    
+                :accuracy   ,    
+                :url        ,   
+                :spectrum_type,  
+                :comment    ,   
+                :project    ,   
+                :source     ,    
+                :obs_type
+            )
+            ''',
+            parameters   = observations,
+            commit_every = 500,
+        )
+
+
+    def execute(self, context):
+        self.log.info("Inserting transformed Epicollect5 observations into SQLite database")
+        with open(self._input_path) as fd:
+            observations = json.load(fd)
+            self.log.info(f"Parsed {len(observations)} observations from {self._input_path}")
+        self._insert(observations)
+        self.log.info("Inserted {len(observations)} StreetSpectra Epicollect observations")
    
