@@ -247,18 +247,19 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
 			)
 		observations = list(map(remap_date, observations))	# The map call is to patch dates
 		N = len(observations)
-		excess = self._n_entries - N 
+		excess = N - self._n_entries
 		if excess > 0:
-			self.log.info(f"Got only {N} entries, discarding last {excess} entries")
+			self.log.info(f"Got {N} entries, discarding last {excess} entries")
 			observations = observations[:-excess]
 		self.log.info(f"Fetched {len(observations)} entries")
 		# Removes the last item and updates the timestamp marker
 		last_item = observations.pop()
 		Variable.set(self._key, last_item['created_at'])
+		self.log.info(f"Dropped last observation at {last_item['created_at']}")
 		# Make sure the output directory exists.
 		output_dir = os.path.dirname(self._output_path)
 		os.makedirs(output_dir, exist_ok=True)
 		with open(self._output_path, "w") as fd:
 			json.dump(observations, indent=2,fp=fd)
-			self.log.info(f"Written entries to {self._output_path}")
+			self.log.info(f"Written {len(observations)} entries to {self._output_path}")
 

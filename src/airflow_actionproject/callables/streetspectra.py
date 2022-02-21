@@ -86,4 +86,22 @@ def check_new_csv_version(conn_id, input_path, input_type, true_task_id, false_t
             replace      = False,
         )       
 	return true_task_id
-	
+
+# This is to replace action.check_number_of_entries()
+def check_number_of_entries(conn_id, start_date, n_entries, project, true_task_id, false_task_id, obs_type='observation'):
+	'''Callable to use with BranchPythonOperator'''
+	next_task = false_task_id
+	filter_dict = {'project': project, 'obs_type': obs_type, 'start_date': start_date}
+	hook = SqliteHook(sqlite_conn_id=conn_id)
+	(available_entries,) = hook.get_first('''
+			SELECT COUNT (image_id)
+			FROM epicollect5_t 
+			WHERE project = :project
+			AND obs_type  = :obs_type
+			AND created_at >= :start_date
+		''',
+		filter_dict
+	)
+	if available_entries >= (n_entries + 1):
+		next_task = true_task_id
+	return next_task
