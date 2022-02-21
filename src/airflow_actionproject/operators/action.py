@@ -155,7 +155,7 @@ class ActionDownloadFromStartDateOperator(BaseOperator):
 		self._conn_id = conn_id
 		self._output_path = output_path
 		self._start_date = start_date
-		self._end_date = '2999-12-31T23:59:59.99999Z'	# far away
+		self._end_date   = '2999-12-31'	# far away
 		self._n_entries = n_entries
 		self._obs_type = obs_type
 		self._project = project
@@ -202,7 +202,6 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
 	(Templated) Path to write the fetched entries to.
 	variable_name : str
 	Airflow Variable name that controlling the start date as a UTC timestamp 'YYYY-MM-DDTHH:MM:SS.SSSSSZ'.
-	Expected format is YYYY-MM-DD (equal to Airflow"s ds formats).
 	project : str
 	Project name
 	n_entries : str
@@ -220,7 +219,7 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
 		self._conn_id = conn_id
 		self._output_path = output_path
 		self._key = variable_name
-		self._end_date = '2999-12-31T23:59:59.99999Z'	# far away
+		self._end_date = '2999-12-31'	# far away
 		self._n_entries = n_entries + 1 # taking into account that we will discard the tast one
 		self._obs_type = obs_type
 		self._project = project

@@ -854,15 +854,16 @@ class SQLInsertObservationsOperator(BaseOperator):
 
     def _insert(self, observations):
 
-        def remap_location(item):
+        def remap_items(item):
             item['longitude'] = item['location']['longitude']
             item['latitude']  = item['location']['latitude']
             item['accuracy']  = item['location']['accuracy']
             item["written_at"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            item['spectrum_type'] = item.get('spectrum_type')
             del item['location']
             return item
 
-        observations = tuple(map(remap_location, observations))
+        observations = tuple(map(remap_items, observations))
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         hook.run_many('''
             INSERT OR IGNORE INTO epicollect5_t (
