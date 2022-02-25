@@ -15,6 +15,7 @@ import re
 import csv
 import json
 import math
+import time
 import datetime
 import collections
 
@@ -30,6 +31,7 @@ from airflow.utils.decorators import apply_defaults
 # Third party imports
 # -------------------
 
+import requests
 import folium
 import numpy as np
 import sklearn.cluster as cluster
@@ -955,7 +957,7 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
         self._project = project
 
     def _to_dict(self, item):
-        keys = ('image_id', 'created_at', 'uploaded_at', 'written_at', 'title', 'observer', 'latitude', 'longitude', 'accuracy', 
+        keys = ('id', 'created_at', 'uploaded_at', 'written_at', 'title', 'observer', 'latitude', 'longitude', 'accuracy', 
                 'url', 'spectrum_type', 'comment', 'project', 'source', 'obs_type')
         output = dict(zip(keys, item))
         output['location'] = {'latitude': output['latitude'], 'longitude': output['longitude'], 'accuracy': output['accuracy']}
@@ -1168,3 +1170,80 @@ class FoliumMapOperator(BaseOperator):
         os.makedirs(output_dir, exist_ok=True)
         self.log.info(f"Generating HTML map {self._output_path}")
         self._map.save(self._output_path)
+
+
+class ImagesDownloadOperator(BaseOperator):
+    '''
+    Operator that downloads actual images from Epicollect5 to the local 
+    
+    Parameters
+    —————
+    conn_id : str
+    Aiflow connection id to connect to the ACTION database. 
+    output_path : str
+    (Templated) Path to write the fetched entries to.
+    project : str
+    Epicollect5 project
+    '''
+    
+    template_fields = ("_output_dir",)
+
+    @apply_defaults
+    def __init__(self, conn_id, output_dir, project, tps = 1, **kwargs):
+        super().__init__(**kwargs)
+        self._conn_id = conn_id
+        self._output_dir = output_dir
+        self._project = project
+        self._tps     = tps
+
+
+    def _transaction(self, hook, directory, delay, image_id, image_url):
+        
+        basename = image_url.split('name=')[-1]
+        filename = os.path.join(directory, basename)
+        if os.path.exists(filename):
+            self.log.info(f"Getting cached image from {filename}")
+        else:
+            self.log.info(f"Downloading image from {image_url}")
+            response = requests.get(image_url)
+            with open(filename,'wb') as fd:
+                fd.write(response.content)
+                time.sleep(delay)
+        ctime = time.gmtime(os.path.getctime(filename))
+        downloaded_at = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", ctime)
+        downloaded_at_dict = {
+            'image_id'     : image_id, 
+            'uploaded_at'  : downloaded_at,
+        }      
+        # Upload to GUAIX
+        self.log.info("Missing upload by scp")
+        # this should be the last step to make in the transaction
+        hook.run(
+            '''
+            INSERT INTO images_t (image_id, uploaded_at) VALUES (:image_id, :uploaded_at)
+            ''',
+            parameters = downloaded_at_dict,
+        )
+
+
+    def _download_new(self, hook, directory, delay):
+        filter_dict = { 'project': self._project}
+        url_list = hook.get_records('''
+            SELECT image_id, url    
+            FROM epicollect5_t
+            WHERE project = :project
+            AND image_id NOT IN (select image_id FROM images_t)
+        ''',
+            filter_dict
+        )
+        for image_id, image_url in url_list:
+            self._transaction(hook, directory, delay, image_id, image_url)
+            
+
+
+    def execute(self, context):
+        directory = self._output_dir
+        delay = 1.0 / self._tps
+        os.makedirs(directory, exist_ok=True)
+        hook = SqliteHook(sqlite_conn_id=self._conn_id)
+        self._download_new(hook, directory, delay)
