@@ -953,7 +953,7 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
         self._project = project
 
     def _to_dict(self, item):
-        keys = ('image_id', 'created_at', 'uploaded_at', 'written_at', 'title', 'observer', 'latitude', 'longitude', 'accuracy', 
+        keys = ('id', 'created_at', 'uploaded_at', 'written_at', 'title', 'observer', 'latitude', 'longitude', 'accuracy', 
                 'url', 'spectrum_type', 'comment', 'project', 'source', 'obs_type')
         output = dict(zip(keys, item))
         output['location'] = {'latitude': output['latitude'], 'longitude': output['longitude'], 'accuracy': output['accuracy']}
