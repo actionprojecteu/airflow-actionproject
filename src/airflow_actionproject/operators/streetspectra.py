@@ -27,6 +27,7 @@ from airflow.models import BaseOperator, Variable
 from airflow.utils.decorators import apply_defaults
 #from airflow.providers.sqlite.hooks.sqlite import SqliteHook
 
+
 # -------------------
 # Third party imports
 # -------------------
@@ -44,6 +45,7 @@ import sklearn.cluster as cluster
 # This hook knows how to insert StreetSpectra metadata on subjects
 from airflow_actionproject.hooks.streetspectra import ZooSpectraHook
 from airflow_actionproject.hooks.sqlite import SqliteHook
+from airflow_actionproject.hooks.ssh import SCPHook
 
 
 
@@ -1172,35 +1174,43 @@ class FoliumMapOperator(BaseOperator):
         self._map.save(self._output_path)
 
 
-class ImagesDownloadOperator(BaseOperator):
+class ImagesSyncOperator(BaseOperator):
     '''
-    Operator that downloads actual images from Epicollect5 to the local 
+    Operator that downloads actual images from Epicollect5 
+    and uplaodes into StreetSpectra storage server. 
     
     Parameters
     —————
-    conn_id : str
-    Aiflow connection id to connect to the ACTION database. 
-    output_path : str
-    (Templated) Path to write the fetched entries to.
+    sql_conn_id : str
+    Aiflow connection id to connect to StrretSpectra SQLite database. 
+    ssh_conn_id : str
+    Aiflow connection id to connect to StrretSpectra image storage. 
+    temp_dir : str
+    (Templated) Directory to tenporary download the images.
+    remote_dir : str
+    (Templated) Directory into StreetSpectra storage server to upload the images.
     project : str
     Epicollect5 project
     '''
     
-    template_fields = ("_output_dir",)
+    template_fields = ("_temp_dir", "_remote_dir")
 
     @apply_defaults
-    def __init__(self, conn_id, output_dir, project, tps = 1, **kwargs):
+    def __init__(self, sql_conn_id, ssh_conn_id, temp_dir, remote_dir, project, **kwargs):
         super().__init__(**kwargs)
-        self._conn_id = conn_id
-        self._output_dir = output_dir
-        self._project = project
-        self._tps     = tps
+        self._sql_conn_id = sql_conn_id
+        self._ssh_conn_id = ssh_conn_id
+        self._temp_dir    = temp_dir
+        self._remote_dir  = remote_dir
+        self._project     = project
 
 
-    def _transaction(self, hook, directory, delay, image_id, image_url):
-        
+    def _transaction(self, sqlite_hook, scp_hook, image_id, image_url):
+        '''For each image, download from Epicollect and upload to GUAIX must be a single transaction'''
+        temp_dir   = self._temp_dir
+        remote_dir = self._remote_dir
         basename = image_url.split('name=')[-1]
-        filename = os.path.join(directory, basename)
+        filename = os.path.join(temp_dir, basename)
         if os.path.exists(filename):
             self.log.info(f"Getting cached image from {filename}")
         else:
@@ -1208,27 +1218,33 @@ class ImagesDownloadOperator(BaseOperator):
             response = requests.get(image_url)
             with open(filename,'wb') as fd:
                 fd.write(response.content)
-                time.sleep(delay)
         ctime = time.gmtime(os.path.getctime(filename))
         downloaded_at = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", ctime)
-        downloaded_at_dict = {
+        filter_dict = {
             'image_id'     : image_id, 
-            'uploaded_at'  : downloaded_at,
+            'downloaded_at': downloaded_at,
         }      
         # Upload to GUAIX
-        self.log.info("Missing upload by scp")
-        # this should be the last step to make in the transaction
-        hook.run(
-            '''
-            INSERT INTO images_t (image_id, uploaded_at) VALUES (:image_id, :uploaded_at)
-            ''',
-            parameters = downloaded_at_dict,
-        )
+        remote_file = os.path.join(remote_dir, basename)
+        status_code = scp_hook.scp_to_remote(filename, remote_file)
+        if status_code == 0:
+            tstamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            filter_dict['uploaded_at'] = tstamp     
+            # this should be the last step to make in the transaction
+            sqlite_hook.run(
+                '''
+                INSERT INTO images_t (image_id, uploaded_at) VALUES (:image_id, :uploaded_at)
+                ''',
+                parameters = filter_dict,
+            )
+            os.remove(filename) # We no longer need it
+        else:
+            self.log.error(f"Error uploafding to image storage server. Code = {status_code}")
 
 
-    def _download_new(self, hook, directory, delay):
+    def _iterate(self, sqlite_hook, scp_hook):
         filter_dict = { 'project': self._project}
-        url_list = hook.get_records('''
+        url_list = sqlite_hook.get_records('''
             SELECT image_id, url    
             FROM epicollect5_t
             WHERE project = :project
@@ -1237,13 +1253,13 @@ class ImagesDownloadOperator(BaseOperator):
             filter_dict
         )
         for image_id, image_url in url_list:
-            self._transaction(hook, directory, delay, image_id, image_url)
+            self._transaction(sqlite_hook, scp_hook, image_id, image_url)
             
 
 
     def execute(self, context):
-        directory = self._output_dir
-        delay = 1.0 / self._tps
-        os.makedirs(directory, exist_ok=True)
-        hook = SqliteHook(sqlite_conn_id=self._conn_id)
-        self._download_new(hook, directory, delay)
+        os.makedirs(self._temp_dir, exist_ok=True)
+        self._iterate(
+            sqlite_hook = SqliteHook(sqlite_conn_id = self._sql_conn_id), 
+            scp_hook    = SCPHook(ssh_conn_id = self._ssh_conn_id),
+        )
