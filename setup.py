@@ -18,7 +18,7 @@ URL          = 'https://github.com/actionprojecteu/airflow-actionproject/'
 DEPENDENCIES = [
     "panoptes-client",  # Access to Zooniverse
     "scikit-learn",     # Clustering algorithms
-    "statsmodels",      # Fleiss' Kappa
+    "folium",           # HTML Maps generation
 ]
 
 CLASSIFIERS  = [

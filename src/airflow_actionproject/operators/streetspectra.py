@@ -15,6 +15,7 @@ import re
 import csv
 import json
 import math
+import time
 import datetime
 import collections
 
@@ -26,12 +27,16 @@ from airflow.models import BaseOperator, Variable
 from airflow.utils.decorators import apply_defaults
 #from airflow.providers.sqlite.hooks.sqlite import SqliteHook
 
+
 # -------------------
 # Third party imports
 # -------------------
 
+import requests
+import folium
 import numpy as np
 import sklearn.cluster as cluster
+
 
 #--------------
 # local imports
@@ -40,6 +45,7 @@ import sklearn.cluster as cluster
 # This hook knows how to insert StreetSpectra metadata on subjects
 from airflow_actionproject.hooks.streetspectra import ZooSpectraHook
 from airflow_actionproject.hooks.sqlite import SqliteHook
+from airflow_actionproject.hooks.ssh import SCPHook
 
 
 
@@ -1004,3 +1010,256 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
             json.dump(observations, indent=2,fp=fd)
             self.log.info(f"Written {len(observations)} entries to {self._output_path}")
 
+
+class ActionRangedDownloadOperator(BaseOperator):
+    '''
+    Operator that fetches project entries from the ACTION SQLite database between 
+    a given start and end dates. 
+
+    Parameters
+    —————
+    conn_id : str
+    Aiflow connection id to connect to Epicollect V. 
+    output_path : str
+    Path to write the fetched entries to.
+    start_date : str
+    (Templated) start date to start fetching entries from (inclusive).
+    Expected format is YYYY-MM-DD (equal to Airflow"s ds formats).
+    end_date : str
+    (Templated) end date to fetching entries up to (exclusive).
+    Expected format is YYYY-MM-DD (equal to Airflow"s ds formats).
+    obs_type : str
+    Observation type, Defaults to "observation" for the time being
+    '''
+
+    template_fields = ("_start_date", "_end_date", "_output_path")
+
+    @apply_defaults
+    def __init__(self, conn_id, output_path, start_date, end_date, project, obs_type='observation', **kwargs):
+        super().__init__(**kwargs)
+        self._conn_id     = conn_id
+        self._output_path = output_path
+        self._start_date  = start_date
+        self._end_date    = end_date
+        self._project     = project
+        self._obs_type    = obs_type
+        
+
+    def _to_dict(self, item):
+        keys = ('id', 'created_at', 'uploaded_at', 'written_at', 'title', 'observer', 'latitude', 'longitude', 'accuracy', 
+                'url', 'spectrum_type', 'comment', 'project', 'source', 'obs_type')
+        output = dict(zip(keys, item))
+        output['location'] = {'latitude': output['latitude'], 'longitude': output['longitude'], 'accuracy': output['accuracy']}
+        del output['latitude']; del output['longitude']; del output['accuracy']; 
+        return output
+
+    def execute(self, context):
+        filter_dict = {
+            'start_date': datetime.datetime.strptime(self._start_date,'%Y-%m-%d').strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+            'end_date'  : datetime.datetime.strptime(self._end_date,  '%Y-%m-%d').strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+            'project'   : self._project,
+            'obs_type'  : self._obs_type
+        }
+        hook = SqliteHook(sqlite_conn_id=self._conn_id)
+        observations = hook.get_records('''
+            SELECT
+                image_id,   
+                created_at,    
+                uploaded_at,    
+                written_at,    
+                title,   
+                observer,    
+                latitude,    
+                longitude,    
+                accuracy, 
+                url,    
+                spectrum_type,    
+                comment,    
+                project,   
+                source,    
+                obs_type   
+            FROM epicollect5_t
+            WHERE project = :project
+            AND   obs_type = :obs_type
+            AND   created_at BETWEEN :start_date AND :end_date
+            ORDER BY created_at ASC
+        ''',
+            filter_dict
+        )
+        observations = list(map(self._to_dict, observations))
+        self.log.info(f"Fetched {len(observations)} entries from SQLite database")       
+        # Make sure the output directory exists.
+        output_dir = os.path.dirname(self._output_path)
+        os.makedirs(output_dir, exist_ok=True)
+        with open(self._output_path, "w") as fd:
+            json.dump(observations, indent=2,fp=fd)
+            self.log.info(f"Written {len(observations)} entries to {self._output_path}")
+
+
+# ========================
+# Map generation operators
+# ========================
+
+class FoliumMapOperator(BaseOperator):
+
+    template_fields = ("_input_path", "_output_path")
+    ROOT_DIR = 'https://guaix.fis.ucm.es/~jaz/Street-Spectra/StreetSpectra_pictures/'
+
+    @apply_defaults
+    def __init__(self, input_path, output_path, center_latitude, center_longitude, zoom_start=6, max_zoom=19, **kwargs):
+        super().__init__(**kwargs)
+        self._input_path = input_path
+        self._output_path = output_path
+        self._map = folium.Map(
+            location   = [center_latitude, center_longitude],
+            zoom_start = zoom_start , 
+            max_zoom   = max_zoom   # Máximum for Open Street Map
+        )
+
+    def _popups(self, observations):
+        self.log.info("Generating pop-ups")
+        for obs in observations:
+            longitude = obs['location']['longitude']
+            latitude  = obs['location']['latitude']
+            pop_html =  folium.Html(
+                f"""
+                <p style="text-align: center;">
+                ACTION - StreetSpectra<br/>
+                <img src= {obs['new_url']} width="300"><br/>
+                {latitude},{longitude}<br/>
+                {obs['created_at']}<br/>
+                by {obs['observer']}
+                </p>""", 
+                script=True)
+            cm = folium.CircleMarker(
+                location     = [latitude, longitude], 
+                radius       = 4, 
+                popup        = folium.Popup(pop_html), 
+                tooltip      = obs['id'],
+                fill         = True, 
+                fill_opacity = 0.7, 
+                parse_html   = False
+            )
+            cm.add_to(self._map)
+
+
+    def _remap_entry(self, item):
+        observer = item.get('observer',"anomymous")
+        observer = "anonymous" if observer == '' else observer
+        item['observer'] = strip_email(observer)
+        # Get the name parameter of URL
+        item['new_url'] = self.ROOT_DIR + item['url'].split('name=')[-1]
+        return item
+
+    def _coordinates(self, item):
+        return item['location']['longitude'] != '' and item['location']['latitude'] != ''
+
+    def _transform(self, entries):
+        '''Map Epicollect V metadata to an ernal, more convenient representation'''
+        # Use generators instead of lists
+        g1 = map(self._remap_entry, entries)
+        g2 = filter(self._coordinates, g1)
+        return g2
+
+    def execute(self, context):
+        with open(self._input_path) as fd:
+            observations = json.load(fd)
+            self.log.info(f"Parsed {len(observations)} observations from {self._input_path}")
+        observations = tuple(self._transform(observations)) # preprocess for Map generation
+        self.log.info(f"{len(observations)} observations left after filtering")
+        self._popups(observations) # generate the popups
+        output_dir = os.path.dirname(self._output_path)
+        os.makedirs(output_dir, exist_ok=True)
+        self.log.info(f"Generating HTML map {self._output_path}")
+        self._map.save(self._output_path)
+
+
+class ImagesSyncOperator(BaseOperator):
+    '''
+    Operator that downloads actual images from Epicollect5 
+    and uplaodes into StreetSpectra storage server. 
+    
+    Parameters
+    —————
+    sql_conn_id : str
+    Aiflow connection id to connect to StrretSpectra SQLite database. 
+    ssh_conn_id : str
+    Aiflow connection id to connect to StrretSpectra image storage. 
+    temp_dir : str
+    (Templated) Directory to tenporary download the images.
+    remote_dir : str
+    (Templated) Directory into StreetSpectra storage server to upload the images.
+    project : str
+    Epicollect5 project
+    '''
+    
+    template_fields = ("_temp_dir", "_remote_dir")
+
+    @apply_defaults
+    def __init__(self, sql_conn_id, ssh_conn_id, temp_dir, remote_dir, project, **kwargs):
+        super().__init__(**kwargs)
+        self._sql_conn_id = sql_conn_id
+        self._ssh_conn_id = ssh_conn_id
+        self._temp_dir    = temp_dir
+        self._remote_dir  = remote_dir
+        self._project     = project
+
+
+    def _transaction(self, sqlite_hook, scp_hook, image_id, image_url):
+        '''For each image, download from Epicollect and upload to GUAIX must be a single transaction'''
+        temp_dir   = self._temp_dir
+        remote_dir = self._remote_dir
+        basename = image_url.split('name=')[-1]
+        filename = os.path.join(temp_dir, basename)
+        if os.path.exists(filename):
+            self.log.info(f"Getting cached image from {filename}")
+        else:
+            self.log.info(f"Downloading image from {image_url}")
+            response = requests.get(image_url)
+            with open(filename,'wb') as fd:
+                fd.write(response.content)
+        ctime = time.gmtime(os.path.getctime(filename))
+        downloaded_at = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", ctime)
+        filter_dict = {
+            'image_id'     : image_id, 
+            'downloaded_at': downloaded_at,
+        }      
+        # Upload to GUAIX
+        remote_file = os.path.join(remote_dir, basename)
+        status_code = scp_hook.scp_to_remote(filename, remote_file)
+        if status_code == 0:
+            tstamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            filter_dict['uploaded_at'] = tstamp     
+            # this should be the last step to make in the transaction
+            sqlite_hook.run(
+                '''
+                INSERT INTO images_t (image_id, uploaded_at) VALUES (:image_id, :uploaded_at)
+                ''',
+                parameters = filter_dict,
+            )
+            os.remove(filename) # We no longer need it
+        else:
+            self.log.error(f"Error uploafding to image storage server. Code = {status_code}")
+
+
+    def _iterate(self, sqlite_hook, scp_hook):
+        filter_dict = { 'project': self._project}
+        url_list = sqlite_hook.get_records('''
+            SELECT image_id, url    
+            FROM epicollect5_t
+            WHERE project = :project
+            AND image_id NOT IN (select image_id FROM images_t)
+        ''',
+            filter_dict
+        )
+        for image_id, image_url in url_list:
+            self._transaction(sqlite_hook, scp_hook, image_id, image_url)
+            
+
+
+    def execute(self, context):
+        os.makedirs(self._temp_dir, exist_ok=True)
+        self._iterate(
+            sqlite_hook = SqliteHook(sqlite_conn_id = self._sql_conn_id), 
+            scp_hook    = SCPHook(ssh_conn_id = self._ssh_conn_id),
+        )
