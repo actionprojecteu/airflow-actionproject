@@ -1100,6 +1100,69 @@ class ActionRangedDownloadOperator(BaseOperator):
             self.log.info(f"Written {len(observations)} entries to {self._output_path}")
 
 
+class AddClassificationsOperator(BaseOperator):
+    '''
+    Operator that ACTION JSON Observations and adds
+    classification data from Zooniverse 
+
+    Parameters
+    —————
+    conn_id : str
+    Aiflow connection id to connect to ACTION internal SQLite database. 
+    input_path : str
+    (Templated) Path with ACTION observations in JSON format.
+    output_path : str
+    (Templated) Path to write the new enriched observations in JSON format.
+    '''
+
+    template_fields = ("_input_path",  "_output_path")
+
+    @apply_defaults
+    def __init__(self, conn_id, input_path, output_path, **kwargs):
+        super().__init__(**kwargs)
+        self._conn_id     = conn_id
+        self._output_path = output_path
+        self._input_path  = input_path
+
+
+    def _add_classifications(self, hook, observations):
+        keys = ('cluster_id', 'source_x', 'source_y', 'cluster_size', 'spectrum_type', 'spectrum_absfreq', 'spectrum_distr')
+        for observation in observations:
+            classifications = hook.get_records(
+                '''
+                SELECT
+                    cluster_id,    
+                    source_x,    
+                    source_y,    
+                    cluster_size,   
+                    spectrum_type,
+                    spectrum_absfreq,    
+                    spectrum_distr  
+                FROM spectra_aggregate_t
+                WHERE image_id = :id
+            ''',
+            observation
+            )
+            classifications = [dict(zip(keys, classif)) for classif in classifications]
+            if classifications:
+                observation['classifications'] = classifications
+            
+
+    def execute(self, context):
+        # Read input JSON file
+        with open(self._input_path) as fd:
+            observations = json.load(fd)
+            self.log.info(f"Parsed observations from {self._input_path}")
+        hook = SqliteHook(sqlite_conn_id=self._conn_id)
+        self._add_classifications(hook, observations)
+        # Write results
+        output_dir = os.path.dirname(self._output_path)
+        os.makedirs(output_dir, exist_ok=True)
+        with open(self._output_path, "w") as fd:
+            json.dump(observations, indent=2,fp=fd)
+            self.log.info(f"Written {len(observations)} entries to {self._output_path}")
+    
+
 # ========================
 # Map generation operators
 # ========================
