@@ -18,6 +18,7 @@ import math
 import time
 import datetime
 import collections
+import itertools
 
 # Access Jinja2 templates withing the package
 from pkg_resources import resource_filename
@@ -1100,10 +1101,15 @@ class ActionRangedDownloadOperator(BaseOperator):
             self.log.info(f"Written {len(observations)} entries to {self._output_path}")
 
 
+
+# ========================
+# Map generation operators
+# ========================
+
+
 class AddClassificationsOperator(BaseOperator):
     '''
-    Operator that ACTION JSON Observations and adds
-    classification data from Zooniverse 
+    Operator that reads an ACTION JSON Observations file and adds classification data from Zooniverse 
 
     Parameters
     —————
@@ -1127,25 +1133,30 @@ class AddClassificationsOperator(BaseOperator):
 
     def _add_classifications(self, hook, observations):
         keys = ('cluster_id', 'source_x', 'source_y', 'cluster_size', 'spectrum_type', 'spectrum_absfreq', 'spectrum_distr')
-        for observation in observations:
-            classifications = hook.get_records(
-                '''
-                SELECT
-                    cluster_id,    
-                    source_x,    
-                    source_y,    
-                    cluster_size,   
-                    spectrum_type,
-                    spectrum_absfreq,    
-                    spectrum_distr  
-                FROM spectra_aggregate_t
-                WHERE image_id = :id
-            ''',
-            observation
-            )
-            classifications = [dict(zip(keys, classif)) for classif in classifications]
-            if classifications:
-                observation['classifications'] = classifications
+        classifications = hook.get_records(
+            '''
+            SELECT
+                image_id,
+                cluster_id,    
+                source_x,    
+                source_y,    
+                cluster_size,   
+                spectrum_type,
+                spectrum_absfreq,    
+                spectrum_distr  
+            FROM spectra_aggregate_t
+            ''')
+        for obs in observations:
+            obs['classifications'] = list()
+        N = 0
+        for key, group in itertools.groupby(classifications, key=lambda item: item[0]):
+            group = tuple(dict(zip(keys, item[1:])) for item in group)
+            for obs in observations:
+                if obs['id'] == key:
+                    obs['classifications'] = group
+                    N += 1
+        self.log.info(f"Updated {N} observations with classification data")
+       
             
 
     def execute(self, context):
@@ -1163,9 +1174,6 @@ class AddClassificationsOperator(BaseOperator):
             self.log.info(f"Written {len(observations)} entries to {self._output_path}")
     
 
-# ========================
-# Map generation operators
-# ========================
 
 class FoliumMapOperator(BaseOperator):
 
