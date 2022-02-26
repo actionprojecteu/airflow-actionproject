@@ -33,8 +33,11 @@ CLASSIFIERS  = [
     'Development Status :: 4 - Beta',
 ]
 
-PACKAGE_DATA = {
 
+PACKAGE_DATA = {
+    'airflow_actionproject.operators': [
+        'templates/*.j2',
+    ],
 }
 
 SCRIPTS = [

@@ -19,6 +19,9 @@ import time
 import datetime
 import collections
 
+# Access Jinja2 templates withing the package
+from pkg_resources import resource_filename
+
 # ---------------
 # Airflow imports
 # ---------------
@@ -36,6 +39,7 @@ import requests
 import folium
 import numpy as np
 import sklearn.cluster as cluster
+import jinja2
 
 
 #--------------
@@ -1115,27 +1119,29 @@ class FoliumMapOperator(BaseOperator):
             zoom_start = zoom_start , 
             max_zoom   = max_zoom   # Máximum for Open Street Map
         )
+        self._context = {}
+        self._template_path = resource_filename(__name__, 'templates/maps.j2')
+
+    def _render(self):
+        template_path = self._template_path 
+        if not os.path.exists(template_path):
+            raise IOError("No Jinja2 template file found at {0}. Exiting ...".format(template_path))
+        path, filename = os.path.split(template_path)
+        return jinja2.Environment(
+            loader=jinja2.FileSystemLoader(path or './')
+        ).get_template(filename).render(self._context)
 
     def _popups(self, observations):
         self.log.info("Generating pop-ups")
-        for obs in observations:
-            longitude = obs['location']['longitude']
-            latitude  = obs['location']['latitude']
-            pop_html =  folium.Html(
-                f"""
-                <p style="text-align: center;">
-                ACTION - StreetSpectra<br/>
-                <img src= {obs['new_url']} width="300"><br/>
-                {latitude},{longitude}<br/>
-                {obs['created_at']}<br/>
-                by {obs['observer']}
-                </p>""", 
-                script=True)
+        for context in observations:
+            self._context = context
+            pop_html = self._render()
+            pop_html =  folium.Html(pop_html, script=True)
             cm = folium.CircleMarker(
-                location     = [latitude, longitude], 
+                location     = (context['location']['latitude'], context['location']['longitude']), 
                 radius       = 4, 
                 popup        = folium.Popup(pop_html), 
-                tooltip      = obs['id'],
+                tooltip      = context['id'],
                 fill         = True, 
                 fill_opacity = 0.7, 
                 parse_html   = False
