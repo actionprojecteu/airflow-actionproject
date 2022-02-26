@@ -2,6 +2,9 @@
 ACTION - StreetSpectra<br/>
 <img src= {{ url }} width="300"><br/>
 {{ latitude }}, {{ longitude }}<br/>
+{% for classif in classifications %}
+Source {{ classif.cluster_id }} ({{ classif.source_x }}, {{ classif.source_y}}): {{ 'Ambiguous' if not classif.spectrum_type else  classif.spectrum_type }} from {{classif.cluster_size}} classif.<br/>
+{% endfor %}
 {{ created_at }}<br/>
 by {{ observer }}
 </p> 
