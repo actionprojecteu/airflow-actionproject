@@ -139,11 +139,12 @@ class AddClassificationsOperator(BaseOperator):
 class FoliumMapOperator(BaseOperator):
 
     template_fields = ("_input_path", "_output_path")
-    ROOT_DIR = 'https://guaix.fis.ucm.es/~jaz/Street-Spectra/StreetSpectra_pictures/'
 
     @apply_defaults
-    def __init__(self, input_path, output_path, center_latitude, center_longitude, zoom_start=6, max_zoom=19, **kwargs):
+    def __init__(self, input_path, output_path, ssh_conn_id, remote_slug, center_latitude, center_longitude, zoom_start=6, max_zoom=19, **kwargs):
         super().__init__(**kwargs)
+        self._ssh_conn_id = ssh_conn_id
+        self._remote_slug = remote_slug
         self._input_path = input_path
         self._output_path = output_path
         self._map = folium.Map(
@@ -186,7 +187,7 @@ class FoliumMapOperator(BaseOperator):
         observer = "anonymous" if observer == '' else observer
         item['observer'] = strip_email(observer)
         # Get the name parameter of URL
-        item['new_url'] = self.ROOT_DIR + item['url'].split('name=')[-1]
+        item['new_url'] = self._urlbase + item['url'].split('name=')[-1]
         return item
 
     def _coordinates(self, item):
@@ -201,6 +202,11 @@ class FoliumMapOperator(BaseOperator):
 
     def execute(self, context):
         self.log.info(f"{self.__class__.__name__} version {__version__}")
+        with SCPHook(self._ssh_conn_id) as hook:
+            host, _, _, _,_ = hook.get_conn()
+            doc_root = hook.doc_root()
+            self._urlbase = f"https://{host}/{doc_root}/{self._remote_slug}/"
+
         with open(self._input_path) as fd:
             observations = json.load(fd)
             self.log.info(f"Parsed {len(observations)} observations from {self._input_path}")

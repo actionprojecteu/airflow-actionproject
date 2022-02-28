@@ -99,6 +99,8 @@ class SCPHook(BaseHook):
         '''Support for hook context manager'''
         self.close()
 
+    def doc_root(self):
+        return self._doc_root
 
     def scp_to_remote(self, from_path, to_path):
         '''
