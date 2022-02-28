@@ -71,8 +71,6 @@ class SCPHook(BaseHook):
             self._key_file = config.password
             self._port     = config.port or self.DEFAULT_PORT
             self._doc_root = config.schema or self.DEFAULT_DOC_ROOT
-
-            self.log.info(f"KEY FILE =  {config.password}")
             if not os.path.isfile(config.password):
                 raise MissingKeyfileError()
             if config.extra:
