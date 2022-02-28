@@ -35,7 +35,7 @@ CLASSIFIERS  = [
 
 
 PACKAGE_DATA = {
-    'airflow_actionproject.operators': [
+    'airflow_actionproject.operators.streetspectra': [
         'templates/*.j2',
     ],
 }

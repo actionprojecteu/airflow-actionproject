@@ -286,6 +286,6 @@ class ZooniverseTransformOperator(BaseOperator):
 
 
     def _zoo_remapper(self, entries):
-        '''Map Zooniverse to an ernal, more convenient representation'''
+        '''Map Zooniverse to an external, more convenient representation'''
         # Use generators instead of lists
         return map(self._remap, entries)
