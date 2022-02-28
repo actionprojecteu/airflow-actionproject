@@ -27,6 +27,8 @@ from airflow.hooks.base import BaseHook
 # local imports
 # -------------
 
+from airflow_actionproject import __version__
+
 # ----------------
 # Module constants
 # ----------------

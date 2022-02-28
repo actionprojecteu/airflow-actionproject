@@ -22,6 +22,8 @@ from airflow.providers.sqlite.hooks.sqlite import SqliteHook as BaseSqliteHook
 # local imports
 # -------------
 
+from airflow_actionproject import __version__
+
 # -----------------------
 # Module global variables
 # -----------------------
@@ -31,8 +33,6 @@ from airflow.providers.sqlite.hooks.sqlite import SqliteHook as BaseSqliteHook
 # ----------------
 
 class SqliteHook(BaseSqliteHook):
-
-
     
     # ----------
     # Public API
@@ -100,6 +100,12 @@ class SqliteHook(BaseSqliteHook):
         
         sql += f"{table} ({columns}) VALUES ({values})"
         return sql
+
+
+  
+    def get_conn(self):
+        self.log.info(f"{self.__class__.__name__} version {__version__}")
+        return super().get_conn()
 
 
     def insert_rows(self, table, rows, target_fields=None, commit_every=1000, replace=False, **kwargs):

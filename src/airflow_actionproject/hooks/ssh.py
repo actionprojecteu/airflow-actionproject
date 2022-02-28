@@ -27,6 +27,8 @@ from airflow.hooks.base import BaseHook
 # local imports
 # -------------
 
+from airflow_actionproject import __version__
+
 # -----------------------
 # Module global variables
 # -----------------------
@@ -60,7 +62,8 @@ class SCPHook(BaseHook):
 
     def get_conn(self):
         if not self._key_file:
-            self.log.info(f"getting connection information from {self._conn_id}")
+            self.log.info(f"{self.__class__.__name__} version {__version__}")
+            self.log.debug(f"getting connection information from {self._conn_id}")
             config = self.get_connection(self._conn_id)
             self._host     = config.host
             self._login    = config.login

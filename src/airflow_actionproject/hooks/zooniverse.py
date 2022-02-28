@@ -25,6 +25,8 @@ from panoptes_client import Panoptes, Project, Workflow, SubjectSet, Subject, Su
 # local imports
 # -------------
 
+from airflow_actionproject import __version__
+
 # -----------------------
 # Module global variables
 # -----------------------
