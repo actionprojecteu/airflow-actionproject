@@ -75,6 +75,7 @@ class ZooniverseHook(BaseHook):
 
 	def get_conn(self):
 		if self._panoptes_client is None:
+			self.log.info(f"{self.__class__.__name__} version {__version__}")
 			self.log.debug(f"getting connection information from {self._conn_id}")
 			config = self.get_connection(self._conn_id)
 			ctyp     = config.conn_type or self.DEFAULT_CONN_TYPE

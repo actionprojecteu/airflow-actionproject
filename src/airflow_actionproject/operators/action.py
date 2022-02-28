@@ -25,6 +25,7 @@ from airflow.utils.decorators import apply_defaults
 # local imports
 # -------------
 
+from airflow_actionproject import __version__
 from airflow_actionproject.hooks.action import ActionDatabaseHook
 
 # -----------------------
@@ -59,6 +60,7 @@ class ActionUploadOperator(BaseOperator):
 
 
 	def execute(self, context):
+		self.log.info(f"{self.__class__.__name__} version {__version__}")
 		with open(self._input_path) as fd:
 			observations = json.load(fd)
 			self.log.info(f"Parsed observations from {self._input_path}")
@@ -102,6 +104,7 @@ class ActionRangedDownloadOperator(BaseOperator):
 
 
 	def execute(self, context):
+		self.log.info(f"{self.__class__.__name__} version {__version__}")
 		with ActionDatabaseHook(self._conn_id) as hook:
 			self.log.info(f"Fetching entries from date {self._start_date} to date {self._end_date}")
 			observations = list(
@@ -162,6 +165,7 @@ class ActionDownloadFromStartDateOperator(BaseOperator):
 
 
 	def execute(self, context):
+		self.log.info(f"{self.__class__.__name__} version {__version__}")
 		with ActionDatabaseHook(self._conn_id) as hook:
 			self.log.info(f"Fetching {self._n_entries} entries from date {self._start_date}")
 			observations = list(
@@ -233,6 +237,7 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
 			tstamp = datetime.datetime.strptime(item["uploaded_at"], "%Y-%m-%d %H:%M:%S")
 			item["uploaded_at"] = tstamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 			return item
+		self.log.info(f"{self.__class__.__name__} version {__version__}")
 		start_date = Variable.get(self._key)
 		with ActionDatabaseHook(self._conn_id) as hook:
 			self.log.info(f"Fetching {self._n_entries} entries from date {start_date}")

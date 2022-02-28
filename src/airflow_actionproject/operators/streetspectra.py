@@ -47,6 +47,7 @@ import jinja2
 # local imports
 # -------------
 
+from airflow_actionproject import __version__
 # This hook knows how to insert StreetSpectra metadata on subjects
 from airflow_actionproject.hooks.streetspectra import ZooSpectraHook
 from airflow_actionproject.hooks.sqlite import SqliteHook
@@ -120,6 +121,7 @@ class EC5TransformOperator(BaseOperator):
 
 
     def execute(self, context):
+        self.log.info(f"{self.__class__.__name__} version {__version__}")
         self.log.info(f"Transforming EC5 observations from JSON file {self._input_path}")
         with open(self._input_path) as fd:
             entries = json.load(fd)
@@ -207,6 +209,7 @@ class ZooImportOperator(BaseOperator):
 
 
     def execute(self, context):
+        self.log.info(f"{self.__class__.__name__} version {__version__}")
         self.log.info(f"Uploading observations to Zooniverse from {self._input_path}")
         with open(self._input_path) as fd:
             subjects_metadata = json.load(fd)
@@ -667,6 +670,7 @@ class AggregateOperator(BaseOperator):
        
 
     def execute(self, context):
+        self.log.info(f"{self.__class__.__name__} version {__version__}")
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         self._cluster(hook)
         self._classify(hook)
@@ -718,6 +722,7 @@ class IndividualCSVExportOperator(BaseOperator):
 
 
     def execute(self, context):
+        self.log.info(f"{self.__class__.__name__} version {__version__}")
         self.log.info(f"Exporting StreetSpectra individual classifications to CSV file {self._output_path}")
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         individual_classifications = hook.get_records('''
@@ -804,6 +809,7 @@ class AggregateCSVExportOperator(BaseOperator):
 
 
     def execute(self, context):
+        self.log.info(f"{self.__class__.__name__} version {__version__}")
         self.log.info(f"Exporting StreetSpectra classifications to CSV file {self._output_path}")
         hook = SqliteHook(sqlite_conn_id=self._conn_id)
         aggregated_classifications = hook.get_records('''
@@ -917,6 +923,7 @@ class SQLInsertObservationsOperator(BaseOperator):
 
 
     def execute(self, context):
+        self.log.info(f"{self.__class__.__name__} version {__version__}")
         self.log.info("Inserting transformed Epicollect5 observations into SQLite database")
         with open(self._input_path) as fd:
             observations = json.load(fd)
@@ -1059,6 +1066,7 @@ class ActionRangedDownloadOperator(BaseOperator):
         return output
 
     def execute(self, context):
+        self.log.info(f"{self.__class__.__name__} version {__version__}")
         filter_dict = {
             'start_date': datetime.datetime.strptime(self._start_date,'%Y-%m-%d').strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
             'end_date'  : datetime.datetime.strptime(self._end_date,  '%Y-%m-%d').strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
@@ -1160,6 +1168,7 @@ class AddClassificationsOperator(BaseOperator):
             
 
     def execute(self, context):
+        self.log.info(f"{self.__class__.__name__} version {__version__}")
         # Read input JSON file
         with open(self._input_path) as fd:
             observations = json.load(fd)
@@ -1239,6 +1248,7 @@ class FoliumMapOperator(BaseOperator):
         return g2
 
     def execute(self, context):
+        self.log.info(f"{self.__class__.__name__} version {__version__}")
         with open(self._input_path) as fd:
             observations = json.load(fd)
             self.log.info(f"Parsed {len(observations)} observations from {self._input_path}")
@@ -1335,6 +1345,7 @@ class ImagesSyncOperator(BaseOperator):
 
 
     def execute(self, context):
+        self.log.info(f"{self.__class__.__name__} version {__version__}")
         os.makedirs(self._temp_dir, exist_ok=True)
         self._iterate(
             sqlite_hook = SqliteHook(sqlite_conn_id = self._sql_conn_id), 

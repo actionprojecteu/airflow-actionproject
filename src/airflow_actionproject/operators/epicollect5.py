@@ -24,6 +24,7 @@ from airflow.utils.decorators import apply_defaults
 # local imports
 # -------------
 
+from airflow_actionproject import __version__
 from airflow_actionproject.hooks.epicollect5 import EpiCollect5Hook
 
 # -----------------------
@@ -64,6 +65,7 @@ class EC5ExportEntriesOperator(BaseOperator):
 
 
 	def execute(self, context):
+		self.log.info(f"{self.__class__.__name__} version {__version__}")
 		with EpiCollect5Hook(self._conn_id) as hook:
 			self.log.info(f"Fetching entries from {self._start_date} to {self._end_date} included")
 			entries = list(

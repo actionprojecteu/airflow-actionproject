@@ -24,6 +24,7 @@ from airflow.utils.decorators import apply_defaults
 # local imports
 # -------------
 
+from airflow_actionproject import __version__
 from airflow_actionproject.hooks.zenodo import ZenodoHook
 
 # -----------------------
@@ -157,6 +158,7 @@ class ZenodoPublishDatasetOperator(BaseOperator):
 
 
 	def execute(self, context):
+		self.log.info(f"{self.__class__.__name__} version {__version__}")
 		with ZenodoHook(self._conn_id) as hook:
 			metadata  = self._build_metadata(hook)
 			title     = metadata['title']
