@@ -196,16 +196,15 @@ class FoliumMapOperator(BaseOperator):
     def _transform(self, entries):
         '''Map Epicollect V metadata to an ernal, more convenient representation'''
         # Use generators instead of lists
-        g1 = map(self._remap_entry, entries)
-        g2 = filter(self._coordinates, g1)
-        return g2
+        g = map(self._remap_entry, entries)
+        g = filter(self._coordinates, g)
+        return g
 
     def execute(self, context):
         self.log.info(f"{self.__class__.__name__} version {__version__}")
         with SCPHook(self._ssh_conn_id) as hook:
             host, _, _, _,_ = hook.get_conn()
-            doc_root = hook.doc_root()
-            self._urlbase = f"https://{host}/{doc_root}/{self._remote_slug}/"
+            self._urlbase = f"https://{host}/{self._remote_slug}/"
 
         with open(self._input_path) as fd:
             observations = json.load(fd)
