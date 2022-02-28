@@ -2,8 +2,15 @@
 ACTION - StreetSpectra<br/>
 EC5 Id: {{ id }}<br/>
 <img src= {{ url }} width="300"><br/>
-Coordinates: {{ latitude }}, {{ longitude }}<br/>
-{% for classif in classifications %}
+{%- if location.latitude >= 0 and location.longitude >= 0 %}
+Coordinates: {{ location.latitude }} N, {{ location.longitude }} E<br/>
+{% elif location.latitude >= 0 and location.longitude < 0 %}
+Coordinates: {{ location.latitude }} N, {{ location.longitude }} W<br/>
+{% elif location.latitude < 0 and location.longitude >=0 %}
+Coordinates: {{ location.latitude }} S, {{ location.longitude }} E<br/>
+{% else %}
+Coordinates: {{ location.latitude }} S, {{ location.longitude }} W<br/>
+{% endif -%}{% for classif in classifications %}
 Source {{ classif.cluster_id }}: ({{ classif.source_x }}, {{ classif.source_y }}), {{ 'Ambiguous' if not classif.spectrum_type else  classif.spectrum_type }} from {{classif.cluster_size}} classif.<br/>
 {% if not classif.spectrum_type %}Classif. Distr: {{ classif.spectrum_distr }}<br/>{% endif %}
 {% endfor %}
