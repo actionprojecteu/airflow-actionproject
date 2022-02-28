@@ -264,75 +264,75 @@ class PreprocessClassifOperator(BaseOperator):
 
 
     def _insert(self, classifications):
-        hook = SqliteHook(sqlite_conn_id=self._conn_id)
-        self.log.info(f"Logging classifications differences")
-        hook.run_many(
-            '''
-            INSERT INTO spectra_classification_t (
-                classification_id,
-                subject_id, 
-                workflow_id, 
-                user_id,  
-                user_ip, 
-                started_at, 
-                finished_at, 
-                width,  
-                height, 
-                image_id, 
-                image_url, 
-                image_long, 
-                image_lat, 
-                image_observer, 
-                image_comment, 
-                image_source,  
-                image_created_at, 
-                image_spectrum
-            ) VALUES (
-                :classification_id,
-                :subject_id, 
-                :workflow_id, 
-                :user_id,  
-                :user_ip, 
-                :started_at, 
-                :finished_at, 
-                :width,  
-                :height, 
-                :image_id, 
-                :image_url, 
-                :image_long, 
-                :image_lat, 
-                :image_observer, 
-                :image_comment, 
-                :image_source,  
-                :image_created_at, 
-                :image_spectrum
-            )''',
-            parameters   = classifications,
-            commit_every = 500,
-        )
-        sources = list()
-        for classification in classifications:
-            sources.extend(classification['sources'])
-        hook.run_many(
-            '''
-            INSERT INTO light_sources_t (
-                classification_id,
-                cluster_id, 
-                source_x, 
-                source_y,  
-                spectrum_type, 
-                aggregated
-            ) VALUES (
-                :classification_id,
-                :cluster_id, 
-                :source_x, 
-                :source_y,  
-                :spectrum_type, 
-                :aggregated
-            )''',
-            parameters   = sources,
-            commit_every = 500,
-        )   
+        with SqliteHook(sqlite_conn_id=self._conn_id) as hook:
+            self.log.info(f"Logging classifications differences")
+            hook.run_many(
+                '''
+                INSERT INTO spectra_classification_t (
+                    classification_id,
+                    subject_id, 
+                    workflow_id, 
+                    user_id,  
+                    user_ip, 
+                    started_at, 
+                    finished_at, 
+                    width,  
+                    height, 
+                    image_id, 
+                    image_url, 
+                    image_long, 
+                    image_lat, 
+                    image_observer, 
+                    image_comment, 
+                    image_source,  
+                    image_created_at, 
+                    image_spectrum
+                ) VALUES (
+                    :classification_id,
+                    :subject_id, 
+                    :workflow_id, 
+                    :user_id,  
+                    :user_ip, 
+                    :started_at, 
+                    :finished_at, 
+                    :width,  
+                    :height, 
+                    :image_id, 
+                    :image_url, 
+                    :image_long, 
+                    :image_lat, 
+                    :image_observer, 
+                    :image_comment, 
+                    :image_source,  
+                    :image_created_at, 
+                    :image_spectrum
+                )''',
+                parameters   = classifications,
+                commit_every = 500,
+            )
+            sources = list()
+            for classification in classifications:
+                sources.extend(classification['sources'])
+            hook.run_many(
+                '''
+                INSERT INTO light_sources_t (
+                    classification_id,
+                    cluster_id, 
+                    source_x, 
+                    source_y,  
+                    spectrum_type, 
+                    aggregated
+                ) VALUES (
+                    :classification_id,
+                    :cluster_id, 
+                    :source_x, 
+                    :source_y,  
+                    :spectrum_type, 
+                    :aggregated
+                )''',
+                parameters   = sources,
+                commit_every = 500,
+            )   
            
         
 
@@ -554,9 +554,9 @@ class AggregateOperator(BaseOperator):
 
     def execute(self, context):
         self.log.info(f"{self.__class__.__name__} version {__version__}")
-        hook = SqliteHook(sqlite_conn_id=self._conn_id)
-        self._cluster(hook)
-        self._classify(hook)
+        with SqliteHook(sqlite_conn_id=self._conn_id) as hook:
+            self._cluster(hook)
+            self._classify(hook)
 
 
 class IndividualCSVExportOperator(BaseOperator):
@@ -607,31 +607,31 @@ class IndividualCSVExportOperator(BaseOperator):
     def execute(self, context):
         self.log.info(f"{self.__class__.__name__} version {__version__}")
         self.log.info(f"Exporting StreetSpectra individual classifications to CSV file {self._output_path}")
-        hook = SqliteHook(sqlite_conn_id=self._conn_id)
-        individual_classifications = hook.get_records('''
-            SELECT
-                '1',  -- CSV file format export version
-                subject_id,
-                cluster_id,
-                iif(user_id,user_id,user_ip),
-                width,
-                height,
-                epsilon,
-                ROUND(source_x,3),
-                ROUND(source_y,3),
-                spectrum_type,
-                -- Metadata from Epicollect 5
-                image_url,
-                image_long,
-                image_lat,
-                image_comment,
-                image_source,
-                image_created_at,
-                image_spectrum
+        with SqliteHook(sqlite_conn_id=self._conn_id) as hook:
+            individual_classifications = hook.get_records('''
+                SELECT
+                    '1',  -- CSV file format export version
+                    subject_id,
+                    cluster_id,
+                    iif(user_id,user_id,user_ip),
+                    width,
+                    height,
+                    epsilon,
+                    ROUND(source_x,3),
+                    ROUND(source_y,3),
+                    spectrum_type,
+                    -- Metadata from Epicollect 5
+                    image_url,
+                    image_long,
+                    image_lat,
+                    image_comment,
+                    image_source,
+                    image_created_at,
+                    image_spectrum
 
-            FROM spectra_classification_v
-            ORDER BY subject_id DESC
-        ''');
+                FROM spectra_classification_v
+                ORDER BY subject_id DESC
+            ''');
         # Make sure the output directory exists.
         output_dir = os.path.dirname(self._output_path)
         os.makedirs(output_dir, exist_ok=True)
@@ -694,30 +694,30 @@ class AggregateCSVExportOperator(BaseOperator):
     def execute(self, context):
         self.log.info(f"{self.__class__.__name__} version {__version__}")
         self.log.info(f"Exporting StreetSpectra classifications to CSV file {self._output_path}")
-        hook = SqliteHook(sqlite_conn_id=self._conn_id)
-        aggregated_classifications = hook.get_records('''
-            SELECT
-                '1',  -- CSV file format export version
-                subject_id || '-' || cluster_id,
-                source_x,
-                source_y,
-                spectrum_type,
-                spectrum_distr,
-                spectrum_absfreq,
-                cluster_size,
-                epsilon,
-                rejection_tag,
-                image_url,
-                image_long,
-                image_lat,
-                image_comment,
-                image_source,
-                image_created_at,
-                image_spectrum
-            FROM spectra_aggregate_t
-            -- WHERE rejection_tag != 'Never classified'
-            ORDER BY image_created_at DESC
-        ''');
+        with SqliteHook(sqlite_conn_id=self._conn_id) as hook:
+            aggregated_classifications = hook.get_records('''
+                SELECT
+                    '1',  -- CSV file format export version
+                    subject_id || '-' || cluster_id,
+                    source_x,
+                    source_y,
+                    spectrum_type,
+                    spectrum_distr,
+                    spectrum_absfreq,
+                    cluster_size,
+                    epsilon,
+                    rejection_tag,
+                    image_url,
+                    image_long,
+                    image_lat,
+                    image_comment,
+                    image_source,
+                    image_created_at,
+                    image_spectrum
+                FROM spectra_aggregate_t
+                -- WHERE rejection_tag != 'Never classified'
+                ORDER BY image_created_at DESC
+            ''');
         # Make sure the output directory exists.
         output_dir = os.path.dirname(self._output_path)
         os.makedirs(output_dir, exist_ok=True)

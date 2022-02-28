@@ -101,6 +101,18 @@ class SqliteHook(BaseSqliteHook):
         sql += f"{table} ({columns}) VALUES ({values})"
         return sql
 
+    # ----------
+    # Public API
+    # ----------
+    
+    def __enter__(self):
+        '''Support for hook context manager'''
+        self.get_conn()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        '''Support for hook context manager'''
+        pass
 
   
     def get_conn(self):
