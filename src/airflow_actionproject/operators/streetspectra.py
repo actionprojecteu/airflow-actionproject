@@ -1274,28 +1274,28 @@ class ImagesSyncOperator(BaseOperator):
     Aiflow connection id to connect to StrretSpectra image storage. 
     temp_dir : str
     (Templated) Directory to tenporary download the images.
-    remote_dir : str
-    (Templated) Directory into StreetSpectra storage server to upload the images.
+    remote_slug : str
+    (Templated) remote directory (relative to a document root) where to upload the images.
     project : str
     Epicollect5 project
     '''
     
-    template_fields = ("_temp_dir", "_remote_dir")
+    template_fields = ("_temp_dir", "_remote_slug")
 
     @apply_defaults
-    def __init__(self, sql_conn_id, ssh_conn_id, temp_dir, remote_dir, project, **kwargs):
+    def __init__(self, sql_conn_id, ssh_conn_id, temp_dir, remote_slug, project, **kwargs):
         super().__init__(**kwargs)
         self._sql_conn_id = sql_conn_id
         self._ssh_conn_id = ssh_conn_id
         self._temp_dir    = temp_dir
-        self._remote_dir  = remote_dir
+        self._remote_slug = remote_slug
         self._project     = project
 
 
     def _transaction(self, sqlite_hook, scp_hook, image_id, image_url):
         '''For each image, download from Epicollect and upload to GUAIX must be a single transaction'''
         temp_dir   = self._temp_dir
-        remote_dir = self._remote_dir
+        remote_slug = self._remote_slug
         basename = image_url.split('name=')[-1]
         filename = os.path.join(temp_dir, basename)
         if os.path.exists(filename):
@@ -1312,7 +1312,7 @@ class ImagesSyncOperator(BaseOperator):
             'downloaded_at': downloaded_at,
         }      
         # Upload to GUAIX
-        remote_file = os.path.join(remote_dir, basename)
+        remote_file = os.path.join(remote_slug, basename) # scp hook also prefixes this with a doc root
         status_code = scp_hook.scp_to_remote(filename, remote_file)
         if status_code == 0:
             tstamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")

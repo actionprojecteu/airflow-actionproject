@@ -52,6 +52,7 @@ class SCPHook(BaseHook):
     DEFAULT_CONN_TYPE = "scp"
     DEFAULT_PORT      = 22
     DEFAULT_TIMEOUT   = None
+    DEFAULT_DOC_ROOT  = "/"
 
     def __init__(self, ssh_conn_id):
         super().__init__()
@@ -69,6 +70,7 @@ class SCPHook(BaseHook):
             self._login    = config.login
             self._key_file = config.password
             self._port     = config.port or self.DEFAULT_PORT
+            self._doc_root = config.schema or self.DEFAULT_DOC_ROOT
 
             self.log.info(f"KEY FILE =  {config.password}")
             if not os.path.isfile(config.password):
@@ -110,6 +112,7 @@ class SCPHook(BaseHook):
         Remote file path.
         '''
         host, port, user, key_file, jump_hosts = self.get_conn()
+        to_path = os.path.join(self._doc_root, to_path)
         if jump_hosts:
             jump_hosts = ','.join(jump_hosts)
             command = f"scp -i {key_file} -P {port} -J {jump_hosts} {from_path} {user}@{host}:{to_path}"
