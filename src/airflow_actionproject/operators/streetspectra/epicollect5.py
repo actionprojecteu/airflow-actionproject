@@ -11,6 +11,7 @@
 # -------------------
 
 import os
+import re
 import json
 import datetime
 
@@ -38,6 +39,15 @@ from airflow_actionproject import __version__
 # -------------------
 # Auxiliar functions
 # -------------------
+
+def strip_email(nickname):
+    regex = r'(\b[A-Za-z0-9._%+-]+)@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+    reobj = re.compile(regex)
+    result = nickname
+    matchobj = reobj.search(nickname)
+    if matchobj:
+        result = matchobj.groups(1)[0]
+    return result
 
 # ----------------
 # Module constants
@@ -97,7 +107,7 @@ class EC5TransformOperator(BaseOperator):
         os.makedirs(output_dir, exist_ok=True)
         with open(self._output_path,'w') as fd:
             json.dump(result, fp=fd, indent=2)
-        self.log.info(f"Transformed EC5 observations to output JSON file {self._output_path}")
+        self.log.info(f"Transformed {len(result)} EC5 observations to output JSON file {self._output_path}")
 
     # --------------
     # Helper methods
@@ -132,13 +142,18 @@ class EC5TransformOperator(BaseOperator):
     def _non_empty_image(self, item):
         return True if item['url'] else False
 
+    def _with_coordinates(self, item):
+        location = item['location']
+        return location['longitude'] != '' and location['latitude'] != ''
+
 
     def _ec5_remapper(self, entries):
         '''Map Epicollect V metadata to an ernal, more convenient representation'''
         # Use generators instead of lists
-        g1 = ({self.NAME_MAP[name]: val for name, val in entry.items()} for entry in entries)
-        g2 = map(self._remap, g1)
-        g3 = filter(self._non_empty_image, g2)
-        return g3
+        g = ({self.NAME_MAP[name]: val for name, val in entry.items()} for entry in entries)
+        g = map(self._remap, g)
+        g = filter(self._non_empty_image, g)
+        g = filter(self._with_coordinates, g)
+        return g
 
 
