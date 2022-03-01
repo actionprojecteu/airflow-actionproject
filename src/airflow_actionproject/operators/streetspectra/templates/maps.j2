@@ -2,13 +2,6 @@
 ACTION - StreetSpectra<br/>
 EC5 Id: {{ id }}<br/>
 <img src= {{ new_url }} width="{{ width//2 if width else 300 }}"><br/>
-{%- if location.latitude >= 0 and location.longitude >= 0 %}
-Coordinates: {{ location.latitude }} N, {{ location.longitude }} E<br/>
-{% elif location.latitude >= 0 and location.longitude < 0 %}
-Coordinates: {{ location.latitude }} N, {{ location.longitude }} W<br/>
-{% elif location.latitude < 0 and location.longitude >=0 %}
-Coordinates: {{ location.latitude }} S, {{ location.longitude }} E<br/>
-{% else %}
-Coordinates: {{ location.latitude }} S, {{ location.longitude }} W<br/>
-{% endif -%}
-Created at {{ created_at }} by {{ observer }}</p> 
+Coordinates: {{ location.latitude }}, {{ location.longitude }}<br/>
+Created at {{ created_at }} by {{ observer }}
+</p> 
