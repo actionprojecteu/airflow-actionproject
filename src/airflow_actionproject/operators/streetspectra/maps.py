@@ -147,13 +147,11 @@ class FoliumMapOperator(BaseOperator):
         self._remote_slug = remote_slug
         self._input_path = input_path
         self._output_path = output_path
-        self._map = folium.Map(
-            location   = [center_latitude, center_longitude],
-            zoom_start = zoom_start , 
-            max_zoom   = max_zoom   # Máximum for Open Street Map
-        )
         self._context = {}
         self._template_path = resource_filename(__name__, 'templates/maps.j2')
+        self._coordinates = [center_latitude, center_longitude]
+        self._zoom_start = zoom_start
+        self._max_zoom = max_zoom
 
     def _render(self):
         template_path = self._template_path 
@@ -190,22 +188,26 @@ class FoliumMapOperator(BaseOperator):
         item['new_url'] = self._urlbase + item['url'].split('name=')[-1]
         return item
 
-    def _coordinates(self, item):
+    def _good_coordinates(self, item):
         return item['location']['longitude'] != '' and item['location']['latitude'] != ''
 
     def _transform(self, entries):
         '''Map Epicollect V metadata to an ernal, more convenient representation'''
         # Use generators instead of lists
         g = map(self._remap_entry, entries)
-        g = filter(self._coordinates, g)
+        g = filter(self._good_coordinates, g)
         return g
 
     def execute(self, context):
         self.log.info(f"{self.__class__.__name__} version {__version__}")
+        self._map = folium.Map(
+            location   = self._coordinates,
+            zoom_start = self._zoom_start , 
+            max_zoom   = self._max_zoom   # Máximum for Open Street Map
+        )
         with SCPHook(self._ssh_conn_id) as hook:
             host, _, _, _,_ = hook.get_conn()
             self._urlbase = f"https://{host}/{self._remote_slug}/"
-
         with open(self._input_path) as fd:
             observations = json.load(fd)
             self.log.info(f"Parsed {len(observations)} observations from {self._input_path}")
