@@ -305,7 +305,7 @@ class ImagesSyncOperator(BaseOperator):
         self._project     = project
 
 
-    def _get_ec5_image(self, sqlite_hook, image_id, image_url):
+    def _get_ec5_image(self, image_id, image_url):
         filter_dict = {'image_id': image_id } 
         temp_dir   = self._temp_dir
         basename = image_url.split('name=')[-1]
@@ -319,7 +319,7 @@ class ImagesSyncOperator(BaseOperator):
                 fd.write(response.content)
             with Image.open(filename) as im:
                 filter_dict['width'], filter_dict['height'] = im.size
-            sqlite_hook.run(
+            self._sqlite_hook.run(
                 '''
                 UPDATE epicollect5_t SET width = :width, height = :height WHERE image_id = :image_id
                 ''',
@@ -330,17 +330,17 @@ class ImagesSyncOperator(BaseOperator):
         #filter_dict['downloaded_at'] = downloaded_at
         return filename
 
-    def _upload_to_guaix(self, sqlite_hook, scp_hook, image_id, filename):
+    def _upload_to_guaix(self, image_id, filename):
         filter_dict = {'image_id': image_id }
         basename = os.path.basename(filename)
         remote_slug = self._remote_slug
         remote_file = os.path.join(remote_slug, basename) # scp hook also prefixes this with a doc root
-        status_code = scp_hook.scp_to_remote(filename, remote_file)
+        status_code = self._scp_hook.scp_to_remote(filename, remote_file)
         if status_code == 0:
             tstamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             filter_dict['uploaded_at'] = tstamp     
             # this should be the last step to make in the transaction
-            sqlite_hook.run(
+            self._sqlite_hook.run(
                 '''
                 INSERT INTO images_t (image_id, uploaded_at) VALUES (:image_id, :uploaded_at)
                 ''',
@@ -350,15 +350,15 @@ class ImagesSyncOperator(BaseOperator):
         else:
             self.log.error(f"Error uploading to image storage server. Code = {status_code}")
 
-    def _transaction(self, sqlite_hook, scp_hook, image_id, image_url):
+    def _transaction(self, image_id, image_url):
         '''For each image, download from Epicollect and upload to GUAIX must be a single transaction'''
-        filename = self._get_ec5_image(sqlite_hook, image_id, image_url)
-        self._upload_to_guaix(sqlite_hook, scp_hook, image_id, filename)
+        filename = self._get_ec5_image(image_id, image_url)
+        self._upload_to_guaix(image_id, filename)
 
 
-    def _iterate(self, sqlite_hook, scp_hook):
+    def _iterate(self):
         filter_dict = { 'project': self._project}
-        url_list = sqlite_hook.get_records('''
+        url_list = self._sqlite_hook.get_records('''
             SELECT image_id, url    
             FROM epicollect5_t
             WHERE project = :project
@@ -367,16 +367,14 @@ class ImagesSyncOperator(BaseOperator):
             filter_dict
         )
         for image_id, image_url in url_list:
-            self._transaction(sqlite_hook, scp_hook, image_id, image_url)
+            self._transaction(image_id, image_url)
             
 
 
     def execute(self, context):
         self.log.info(f"{self.__class__.__name__} version {__version__}")
         os.makedirs(self._temp_dir, exist_ok=True)
-        self._iterate(
-            sqlite_hook = SqliteHook(sqlite_conn_id = self._sql_conn_id), 
-            scp_hook    = SCPHook(ssh_conn_id = self._ssh_conn_id),
-        )
-
+        self._sqlite_hook = SqliteHook(sqlite_conn_id = self._sql_conn_id)
+        self._scp_hook    = SCPHook(ssh_conn_id = self._ssh_conn_id)
+        self._iterate()
 
