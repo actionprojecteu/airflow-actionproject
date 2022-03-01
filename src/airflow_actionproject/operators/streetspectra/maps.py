@@ -378,3 +378,92 @@ class ImagesSyncOperator(BaseOperator):
         self._scp_hook    = SCPHook(ssh_conn_id = self._ssh_conn_id)
         self._iterate()
 
+
+class MetadataSyncOperator(BaseOperator):
+    '''
+    Operator that downloads actual images from Epicollect5 
+    and uplaodes into StreetSpectra storage server. 
+    
+    Parameters
+    —————
+    sql_conn_id : str
+    Aiflow connection id to connect to StrretSpectra SQLite database. 
+    ssh_conn_id : str
+    Aiflow connection id to connect to StrretSpectra metadata storage. 
+    temp_dir : str
+    (Templated) Directory to tenporary generate metadata.
+    remote_slug : str
+    (Templated) remote directory (relative to a document root) where to upload metadata files.
+    project : str
+    Epicollect5 project
+    '''
+    
+    template_fields = ("_temp_dir", "_input_path", "_remote_slug")
+
+    @apply_defaults
+    def __init__(self, sql_conn_id, ssh_conn_id, input_path, temp_dir, remote_slug, project, **kwargs):
+        super().__init__(**kwargs)
+        self._sql_conn_id = sql_conn_id
+        self._ssh_conn_id = ssh_conn_id
+        self._temp_dir    = temp_dir
+        self._remote_slug = remote_slug
+        self._project     = project
+        self._input_path  = input_path
+
+
+    def _upload_to_guaix(self, image_id, filename):
+        filter_dict = {'image_id': image_id }
+        basename = os.path.basename(filename)
+        remote_slug = self._remote_slug
+        remote_file = os.path.join(remote_slug, basename) # scp hook also prefixes this with a doc root
+        status_code = self._scp_hook.scp_to_remote(filename, remote_file)
+        if status_code == 0:
+            tstamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            filter_dict['uploaded_at'] = tstamp     
+            # this should be the last step to make in the transaction
+            self._sqlite_hook.run(
+                '''
+                INSERT INTO metadata_files_t (image_id, uploaded_at) VALUES (:image_id, :uploaded_at)
+                ''',
+                parameters = filter_dict,
+            )
+            os.remove(filename) # We no longer need it
+        else:
+            self.log.error(f"Error uploading metadata to storage server. Code = {status_code}")
+
+    def _generate_files(self, missing_observations):
+        self.log.info(f"Loading all observations from JSON file {self._input_path}")
+        with open(self._input_path) as fd:
+            observations = json.load(fd)
+        for observation in observations:
+            image_id =  observation['id']
+            if image_id in missing_observations:
+                output_path = os.path.join(self._temp_dir, image_id + '.json')
+                with open(output_path,'w') as fd:
+                    json.dump(observation, fp=fd, indent=2)
+                self.log.info(f"Saving individual observation to output JSON file {output_path}")
+
+
+    def _iterate(self):
+        filter_dict = { 'project': self._project}
+        obs_list = self._sqlite_hook.get_records('''
+            SELECT image_id    
+            FROM epicollect5_t
+            WHERE project = :project
+            AND image_id NOT IN (select image_id FROM metadata_files_t)
+        ''',
+            filter_dict
+        )
+        self._generate_files(tuple(zip(*obs_list))[0])
+        for image_id, in obs_list:
+            filename = os.path.join(self._temp_dir, image_id + '.json')
+            self._upload_to_guaix(image_id, filename)
+            
+
+    def execute(self, context):
+        self.log.info(f"{self.__class__.__name__} version {__version__}")
+        os.makedirs(self._temp_dir, exist_ok=True)
+        self._sqlite_hook = SqliteHook(sqlite_conn_id = self._sql_conn_id)
+        self._scp_hook    = SCPHook(ssh_conn_id = self._ssh_conn_id)
+        self._iterate()
+
