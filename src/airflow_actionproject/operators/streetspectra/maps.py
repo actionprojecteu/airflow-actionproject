@@ -33,8 +33,8 @@ from airflow.utils.decorators import apply_defaults
 
 import requests
 import folium
-import sklearn.cluster as cluster
 import jinja2
+from PIL import Image
 
 #--------------
 # local imports
@@ -218,6 +218,60 @@ class FoliumMapOperator(BaseOperator):
         self._map.save(self._output_path)
 
 
+class ImagesDimOperator(BaseOperator):
+    '''Used for data migration purposes only'''
+
+    template_fields = ("_temp_dir", )
+
+    @apply_defaults
+    def __init__(self, sql_conn_id,  temp_dir,  project, **kwargs):
+        super().__init__(**kwargs)
+        self._sql_conn_id = sql_conn_id
+        self._temp_dir    = temp_dir
+        self._project     = project
+
+    def execute(self, context):
+        self.log.info(f"{self.__class__.__name__} version {__version__}")
+        os.makedirs(self._temp_dir, exist_ok=True)
+        self._iterate(
+            sqlite_hook = SqliteHook(sqlite_conn_id = self._sql_conn_id), 
+        )
+
+    def _iterate(self, sqlite_hook):
+        filter_dict = { 'project': self._project}
+        url_list = sqlite_hook.get_records('''
+            SELECT image_id, url    
+            FROM epicollect5_t
+            WHERE project = :project
+            AND width IS NULL and height is NULL
+        ''',
+            filter_dict
+        )
+        for image_id, image_url in url_list:
+            self._transaction(sqlite_hook, image_id, image_url)
+
+
+    def _transaction(self, sqlite_hook, image_id, image_url):
+        '''For each image, download from Epicollect5 and get width and height'''
+        filter_dict = {'image_id': image_id } 
+        temp_dir   = self._temp_dir
+        basename = image_url.split('name=')[-1]
+        filename = os.path.join(temp_dir, basename)
+        if not os.path.exists(filename):
+            self.log.info(f"Downloading image from {image_url}")
+            response = requests.get(image_url)
+            with open(filename,'wb') as fd:
+                fd.write(response.content)
+            with Image.open(filename) as im:
+                filter_dict['width'], filter_dict['height'] = im.size
+            sqlite_hook.run(
+                '''
+                UPDATE epicollect5_t SET width = :width, height = :height WHERE image_id = :image_id
+                ''',
+                parameters = filter_dict,
+            )
+            os.remove(filename)
+
 class ImagesSyncOperator(BaseOperator):
     '''
     Operator that downloads actual images from Epicollect5 
@@ -251,6 +305,7 @@ class ImagesSyncOperator(BaseOperator):
 
     def _transaction(self, sqlite_hook, scp_hook, image_id, image_url):
         '''For each image, download from Epicollect and upload to GUAIX must be a single transaction'''
+        filter_dict = {'image_id': image_id } 
         temp_dir   = self._temp_dir
         remote_slug = self._remote_slug
         basename = image_url.split('name=')[-1]
@@ -262,12 +317,17 @@ class ImagesSyncOperator(BaseOperator):
             response = requests.get(image_url)
             with open(filename,'wb') as fd:
                 fd.write(response.content)
+            with Image.open(filename) as im:
+                filter_dict['width'], filter_dict['height'] = im.size
+            sqlite_hook.run(
+                '''
+                UPDATE epicollect5_t SET width = :width, height = :height WHERE image_id = :image_id
+                ''',
+                parameters = filter_dict,
+            )
         ctime = time.gmtime(os.path.getctime(filename))
         downloaded_at = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", ctime)
-        filter_dict = {
-            'image_id'     : image_id, 
-            'downloaded_at': downloaded_at,
-        }      
+        filter_dict['downloaded_at'] = downloaded_at   
         # Upload to GUAIX
         remote_file = os.path.join(remote_slug, basename) # scp hook also prefixes this with a doc root
         status_code = scp_hook.scp_to_remote(filename, remote_file)

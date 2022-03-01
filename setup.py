@@ -19,6 +19,7 @@ DEPENDENCIES = [
     "panoptes-client",  # Access to Zooniverse
     "scikit-learn",     # Clustering algorithms
     "folium",           # HTML Maps generation
+    "Pillow",           # for maps (image size)
 ]
 
 CLASSIFIERS  = [

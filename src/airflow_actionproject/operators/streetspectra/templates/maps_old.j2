@@ -1,7 +1,7 @@
 <p style="text-align: center;">
 ACTION - StreetSpectra<br/>
 EC5 Id: {{ id }}<br/>
-<img src= {{ new_url }} width="{{ width//2 if width else 300 }}"><br/>
+<img src= {{ new_url }} width="300"><br/>
 {%- if location.latitude >= 0 and location.longitude >= 0 %}
 Coordinates: {{ location.latitude }} N, {{ location.longitude }} E<br/>
 {% elif location.latitude >= 0 and location.longitude < 0 %}
@@ -10,5 +10,8 @@ Coordinates: {{ location.latitude }} N, {{ location.longitude }} W<br/>
 Coordinates: {{ location.latitude }} S, {{ location.longitude }} E<br/>
 {% else %}
 Coordinates: {{ location.latitude }} S, {{ location.longitude }} W<br/>
-{% endif -%}
+{% endif -%}{% for classif in classifications %}
+Source {{ classif.cluster_id }}: ({{ classif.source_x }}, {{ classif.source_y }}), {{ 'Ambiguous' if not classif.spectrum_type else  classif.spectrum_type }} from {{classif.cluster_size}} classif.<br/>
+{% if not classif.spectrum_type %}Classif. Distr: {{ classif.spectrum_distr }}<br/>{% endif %}
+{% endfor %}
 Created at {{ created_at }} by {{ observer }}</p> 

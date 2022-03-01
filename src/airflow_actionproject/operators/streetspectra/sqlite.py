@@ -182,7 +182,7 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
 
     def _to_dict(self, item):
         keys = ('id', 'created_at', 'uploaded_at', 'written_at', 'title', 'observer', 'latitude', 'longitude', 'accuracy', 
-                'url', 'spectrum_type', 'comment', 'project', 'source', 'obs_type')
+                'url', 'spectrum_type', 'comment', 'project', 'source', 'obs_type','width','height')
         output = dict(zip(keys, item))
         output['location'] = {'latitude': output['latitude'], 'longitude': output['longitude'], 'accuracy': output['accuracy']}
         del output['latitude']; del output['longitude']; del output['accuracy']; 
@@ -209,7 +209,9 @@ class ActionDownloadFromVariableDateOperator(BaseOperator):
                 comment,    
                 project,   
                 source,    
-                obs_type   
+                obs_type,
+                width,
+                height   
             FROM epicollect5_t
             WHERE project = :project
             AND   obs_type = :obs_type
@@ -269,7 +271,7 @@ class ActionRangedDownloadOperator(BaseOperator):
 
     def _to_dict(self, item):
         keys = ('id', 'created_at', 'uploaded_at', 'written_at', 'title', 'observer', 'latitude', 'longitude', 'accuracy', 
-                'url', 'spectrum_type', 'comment', 'project', 'source', 'obs_type')
+                'url', 'spectrum_type', 'comment', 'project', 'source', 'obs_type','width','height')
         output = dict(zip(keys, item))
         output['location'] = {'latitude': output['latitude'], 'longitude': output['longitude'], 'accuracy': output['accuracy']}
         del output['latitude']; del output['longitude']; del output['accuracy']; 
@@ -300,7 +302,9 @@ class ActionRangedDownloadOperator(BaseOperator):
                 comment,    
                 project,   
                 source,    
-                obs_type   
+                obs_type,
+                width,
+                height   
             FROM epicollect5_t
             WHERE project = :project
             AND   obs_type = :obs_type
