@@ -36,6 +36,9 @@ import folium
 import jinja2
 from PIL import Image
 
+import numpy as np
+import matplotlib.pyplot as plt
+
 #--------------
 # local imports
 # -------------
@@ -355,7 +358,6 @@ class ImagesSyncOperator(BaseOperator):
         filename = self._get_ec5_image(image_id, image_url)
         self._upload_to_guaix(image_id, filename)
 
-
     def _iterate(self):
         filter_dict = { 'project': self._project}
         url_list = self._sqlite_hook.get_records('''
@@ -369,8 +371,6 @@ class ImagesSyncOperator(BaseOperator):
         for image_id, image_url in url_list:
             self._transaction(image_id, image_url)
             
-
-
     def execute(self, context):
         self.log.info(f"{self.__class__.__name__} version {__version__}")
         os.makedirs(self._temp_dir, exist_ok=True)
@@ -378,3 +378,42 @@ class ImagesSyncOperator(BaseOperator):
         self._scp_hook    = SCPHook(ssh_conn_id = self._ssh_conn_id)
         self._iterate()
 
+    def _classification_plot(self, filename):
+        fig, axe = plt.subplots()
+        img = Image.open(filename)
+        width, height = img.size
+        axe.imshow(img, alpha=0.5, zorder=-1, aspect='equal', origin='upper')
+
+
+    def _one_database_step(self, i):
+        subject_id, image_id = self.load(i)
+        self.axe.set_title(f'Subject {subject_id}\nEC5 Id {image_id}\nLight Sources from the database')
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT DISTINCT cluster_id 
+            FROM spectra_classification_v 
+            WHERE subject_id = :subject_id
+            ORDER BY cluster_id ASC
+            ''',
+            {'subject_id': subject_id}
+        )
+        cluster_ids = cursor.fetchall()
+        for (cluster_id,) in cluster_ids:
+            cursor2 = self.conn.cursor()
+            cursor2.execute('''
+                SELECT source_x, source_y, epsilon  
+                FROM spectra_classification_v 
+                WHERE subject_id = :subject_id
+                AND cluster_id = :cluster_id
+                ''',
+                {'subject_id': subject_id, 'cluster_id': cluster_id}
+            )        
+            coordinates = cursor2.fetchall()
+            N_Classifications = len(coordinates)
+            log.info(f"Subject {subject_id}: cluster_id {cluster_id} has {N_Classifications} data points")
+            X, Y, EPS = tuple(zip(*coordinates))
+            Xc = statistics.mean(X); Yc = statistics.mean(Y);
+            sca = self.axe.scatter(X, Y,  marker='o', zorder=1)
+            self.sca.append(sca)
+            txt = self.axe.text(Xc+EPS[0], Yc+EPS[0], cluster_id, fontsize=9, zorder=2)
+            self.txt.append(txt)
