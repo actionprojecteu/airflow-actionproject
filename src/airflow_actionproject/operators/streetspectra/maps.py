@@ -305,11 +305,9 @@ class ImagesSyncOperator(BaseOperator):
         self._project     = project
 
 
-    def _transaction(self, sqlite_hook, scp_hook, image_id, image_url):
-        '''For each image, download from Epicollect and upload to GUAIX must be a single transaction'''
+    def _get_ec5_image(self, sqlite_hook, image_id, image_url):
         filter_dict = {'image_id': image_id } 
         temp_dir   = self._temp_dir
-        remote_slug = self._remote_slug
         basename = image_url.split('name=')[-1]
         filename = os.path.join(temp_dir, basename)
         if os.path.exists(filename):
@@ -327,10 +325,15 @@ class ImagesSyncOperator(BaseOperator):
                 ''',
                 parameters = filter_dict,
             )
-        ctime = time.gmtime(os.path.getctime(filename))
-        downloaded_at = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", ctime)
-        filter_dict['downloaded_at'] = downloaded_at   
-        # Upload to GUAIX
+        #ctime = time.gmtime(os.path.getctime(filename))
+        #downloaded_at = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", ctime)
+        #filter_dict['downloaded_at'] = downloaded_at
+        return filename
+
+    def _upload_to_guaix(self, sqlite_hook, scp_hook, image_id, filename):
+        filter_dict = {'image_id': image_id }
+        basename = os.path.basename(filename)
+        remote_slug = self._remote_slug
         remote_file = os.path.join(remote_slug, basename) # scp hook also prefixes this with a doc root
         status_code = scp_hook.scp_to_remote(filename, remote_file)
         if status_code == 0:
@@ -345,7 +348,12 @@ class ImagesSyncOperator(BaseOperator):
             )
             os.remove(filename) # We no longer need it
         else:
-            self.log.error(f"Error uploafding to image storage server. Code = {status_code}")
+            self.log.error(f"Error uploading to image storage server. Code = {status_code}")
+
+    def _transaction(self, sqlite_hook, scp_hook, image_id, image_url):
+        '''For each image, download from Epicollect and upload to GUAIX must be a single transaction'''
+        filename = self._get_ec5_image(sqlite_hook, image_id, image_url)
+        self._upload_to_guaix(sqlite_hook, scp_hook, image_id, filename)
 
 
     def _iterate(self, sqlite_hook, scp_hook):
@@ -370,3 +378,5 @@ class ImagesSyncOperator(BaseOperator):
             sqlite_hook = SqliteHook(sqlite_conn_id = self._sql_conn_id), 
             scp_hook    = SCPHook(ssh_conn_id = self._ssh_conn_id),
         )
+
+
