@@ -311,7 +311,7 @@ class ImagesSyncOperator(BaseOperator):
     def _get_ec5_image(self, image_id, image_url):
         filter_dict = {'image_id': image_id } 
         temp_dir   = self._temp_dir
-        basename = image_url.split('name=')[-1]
+        basename = image_id + '.jpg'
         filename = os.path.join(temp_dir, basename)
         if os.path.exists(filename):
             self.log.info(f"Getting cached image from {filename}")
