@@ -53,6 +53,7 @@ class SCPHook(BaseHook):
     DEFAULT_PORT      = 22
     DEFAULT_TIMEOUT   = None
     DEFAULT_DOC_ROOT  = "/"
+    DEFAULT_DOCROOT_SLUG = ''
 
     def __init__(self, ssh_conn_id):
         super().__init__()
@@ -71,6 +72,7 @@ class SCPHook(BaseHook):
             self._key_file = config.password
             self._port     = config.port or self.DEFAULT_PORT
             self._doc_root = config.schema or self.DEFAULT_DOC_ROOT
+            self._docroot_slug = self.DEFAULT_DOCROOT_SLUG
             if not os.path.isfile(config.password):
                 raise MissingKeyfileError()
             if config.extra:
@@ -79,9 +81,10 @@ class SCPHook(BaseHook):
                 except json.decoder.JSONDecodeError:
                     pass
                 else:
-                    self._jump_hosts = extra.get("jump_hosts", [])   
-                    self._timeout    = extra.get("timeout", self.DEFAULT_TIMEOUT)                  
-        return self._host, self._port, self._login, self._key_file, self._jump_hosts
+                    self._jump_hosts   = extra.get("jump_hosts", [])   
+                    self._timeout      = extra.get("timeout", self.DEFAULT_TIMEOUT)
+                    self._docroot_slug = extra.get("docroot_slug", self.DEFAULT_DOCROOT_SLUG)                  
+        return self._host, self._port, self._login, self._key_file, self._jump_hosts, self._doc_root, self._docroot_slug
 
 
     # ----------
@@ -97,9 +100,6 @@ class SCPHook(BaseHook):
         '''Support for hook context manager'''
         self.close()
 
-    def doc_root(self):
-        return self._doc_root
-
     def scp_to_remote(self, from_path, to_path):
         '''
         Copy file from local to remote site.
@@ -111,7 +111,7 @@ class SCPHook(BaseHook):
         to_path : str
         Remote file path.
         '''
-        host, port, user, key_file, jump_hosts = self.get_conn()
+        host, port, user, key_file, jump_hosts, doc_root, docroot_slug = self.get_conn()
         to_path = os.path.join(self._doc_root, to_path)
         if jump_hosts:
             jump_hosts = ','.join(jump_hosts)

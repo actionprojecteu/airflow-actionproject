@@ -186,7 +186,7 @@ class FoliumMapOperator(BaseOperator):
         observer = "anonymous" if observer == '' else observer
         item['observer'] = strip_email(observer)
         # Get the name parameter of URL
-        item['new_url']  = self._urlbase + item['url'].split('name=')[-1]
+        item['new_url']  = self._urlbase + item['id'] + '.jpg'
         item['metadata_url'] = self._urlbase2 + item['id'] + '.json'
         return item
 
@@ -208,9 +208,9 @@ class FoliumMapOperator(BaseOperator):
             max_zoom   = self._max_zoom   # Máximum for Open Street Map
         )
         with SCPHook(self._ssh_conn_id) as hook:
-            host, _, _, _,_ = hook.get_conn()
-            self._urlbase  = f"https://{host}/{self._img_remote_slug}/"
-            self._urlbase2 = f"https://{host}/{self._meta_remote_slug}/"
+            host, _, _, _,_,_, docroot_slug = hook.get_conn()
+            self._urlbase  = f"https://{host}/{docroot_slug}/{self._img_remote_slug}/"
+            self._urlbase2 = f"https://{host}/{docroot_slug}/{self._meta_remote_slug}/"
         with open(self._input_path) as fd:
             observations = json.load(fd)
             self.log.info(f"Parsed {len(observations)} observations from {self._input_path}")
@@ -461,7 +461,7 @@ class MetadataSyncOperator(BaseOperator):
         obs_list = obs_list[0] if obs_list else obs_list
         if obs_list:
             self._generate_files(obs_list)
-            for image_id, in obs_list:
+            for image_id in obs_list:
                 filename = os.path.join(self._temp_dir, image_id + '.json')
                 self._upload_to_guaix(image_id, filename)
         else:
