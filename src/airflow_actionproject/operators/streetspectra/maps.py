@@ -457,10 +457,15 @@ class MetadataSyncOperator(BaseOperator):
         ''',
             filter_dict
         )
-        self._generate_files(tuple(zip(*obs_list))[0])
-        for image_id, in obs_list:
-            filename = os.path.join(self._temp_dir, image_id + '.json')
-            self._upload_to_guaix(image_id, filename)
+        obs_list = tuple(zip(*obs_list)) # Flatten from a tuple of tuples
+        obs_list = obs_list[0] if obs_list else obs_list
+        if obs_list:
+            self._generate_files(obs_list)
+            for image_id, in obs_list:
+                filename = os.path.join(self._temp_dir, image_id + '.json')
+                self._upload_to_guaix(image_id, filename)
+        else:
+            self.log.info("No new images for metadata")
             
 
     def execute(self, context):
